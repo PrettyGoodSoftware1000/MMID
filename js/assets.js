@@ -19,14 +19,25 @@ export function toCanvas(img) {
   return c;
 }
 
-// If the top-left pixel is opaque, treat its color as the background key
-// and make every matching pixel transparent. Returns a new canvas.
+// Knocks the sheet's background color out to transparent. The key color is
+// the most common opaque color in the image (backgrounds dominate rips) —
+// safer than sampling a corner, which may hit a border instead.
 export function knockoutKeyColor(canvas) {
   const g = canvas.getContext('2d', { willReadFrequently: true });
   const im = g.getImageData(0, 0, canvas.width, canvas.height);
   const d = im.data;
-  if (d[3] < 250) return canvas; // already transparent bg
-  const kr = d[0], kg = d[1], kb = d[2];
+  let transparent = 0;
+  const counts = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 250) { transparent++; continue; }
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  let best = -1, bestN = 0;
+  for (const [k, n] of counts) if (n > bestN) { bestN = n; best = k; }
+  // already transparent-backed, or no dominant color: leave it alone
+  if (transparent > bestN || best < 0) return canvas;
+  const kr = best >> 16, kg = (best >> 8) & 255, kb = best & 255;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i] === kr && d[i + 1] === kg && d[i + 2] === kb) d[i + 3] = 0;
   }

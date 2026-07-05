@@ -26,7 +26,11 @@ export class Enemy {
 
   damage(d) { this.hp -= d; this.flash = 6; if (this.hp <= 0) this.alive = false; }
 
-  update(level, player) {
+  update(level, players) {
+    // target the nearest player that can be interacted with
+    const live = players.filter(p => p.alive);
+    const player = live.sort((a, b) =>
+      Math.abs(a.x - this.x) - Math.abs(b.x - this.x))[0] || players[0];
     this.t++;
     if (this.flash > 0) this.flash--;
     const b = this.body;
@@ -41,8 +45,8 @@ export class Enemy {
       }
     } else if (this.id === 'flyer') {
       const dx = player.x - this.x, dy = (player.y - 14) - this.y;
-      const near = Math.abs(dx) < 110 && Math.abs(dy) < 90;
-      if (near && player.state === 'play') {
+      const near = Math.abs(dx) < 110 && Math.abs(dy) < 90 && player.alive;
+      if (near) {
         b.x += Math.sign(dx) * this.spec.speed;
         b.y += Math.sign(dy) * this.spec.speed * 0.7;
         this.dir = Math.sign(dx) || this.dir;
@@ -51,7 +55,7 @@ export class Enemy {
         b.y = this.baseY + Math.sin(this.t / 24) * 8;
       }
     } else if (this.id === 'turret') {
-      if (this.t % this.spec.fireEvery === 0 && Math.abs(player.x - this.x) < 180 && player.state === 'play') {
+      if (this.t % this.spec.fireEvery === 0 && Math.abs(player.x - this.x) < 180 && player.alive) {
         const a = Math.atan2((player.y - 14) - (this.y - 9), player.x - this.x);
         this.shots.push({ x: this.x, y: this.y - 9, vx: Math.cos(a) * this.spec.shotSpeed, vy: Math.sin(a) * this.spec.shotSpeed, life: 240 });
       }

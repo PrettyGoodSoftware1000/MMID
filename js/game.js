@@ -1,8 +1,9 @@
 import { CFG } from './config.js';
-import { input } from './input.js';
+import { Input, connectedPads } from './input.js';
 import { loadSheet } from './assets.js';
 import { sliceSheet } from './slicer.js';
 import { X_MAP, Animator } from './spritemap.js';
+import { RUSH_MAP } from './rushmap.js';
 import { Level } from './level.js';
 import { Camera } from './camera.js';
 import { Player } from './player.js';
@@ -14,79 +15,118 @@ const canvas = document.getElementById('game');
 const g = canvas.getContext('2d');
 g.imageSmoothingEnabled = false;
 
-let sheet, rows, levelsDef, state = 'menu', menuIdx = 0;
-let level, cam, player, fx, enemies = [], checkpoint = null, fade = 0;
+const MODES = [
+  { label: '1P — X', chars: ['x'] },
+  { label: '1P — RUSH', chars: ['rush'] },
+  { label: '2P — X & RUSH', chars: ['x', 'rush'] },
+];
+
+const sheets = {}, rows = {};
+let levelsDef, state = 'menu', phase = 'mode', modeIdx = 0, levelIdx = 0;
+let level, cam, players = [], fx, enemies = [], checkpoint = null, fade = 0;
+const inputs = [new Input(true, 0), new Input(false, 1)];
 
 async function boot() {
-  const res = await fetch('levels.json');
-  levelsDef = await res.json();
-  sheet = await loadSheet('assets/x.png');
-  rows = sliceSheet(sheet);
+  levelsDef = await (await fetch('levels.json')).json();
+  for (const id of Object.keys(CFG.chars)) {
+    sheets[id] = await loadSheet(CFG.chars[id].sheet);
+    rows[id] = sliceSheet(sheets[id]);
+  }
   requestAnimationFrame(loop);
 }
 
-async function startLevel(def) {
+const MAPS = { x: X_MAP, rush: RUSH_MAP };
+const makeAnim = id => new Animator(sheets[id], rows[id], MAPS[id]);
+
+async function startLevel(def, chars) {
   state = 'loading';
   level = await Level.load(def);
-  fx = new Effects(() => new Animator(sheet, rows, X_MAP));
-  player = new Player(new Animator(sheet, rows, X_MAP), fx);
+  fx = new Effects(() => makeAnim('x'));
+  players = chars.map((id, i) => new Player(id, makeAnim(id), fx, inputs[i]));
   checkpoint = { ...level.spawn };
   cam = new Camera(level);
-  respawn();
+  fullRespawn();
   state = 'play';
 }
 
-function respawn() {
+function fullRespawn() {
   enemies = level.enemySpawns.map(s => new Enemy(s.id, s.x, s.y));
-  player.place(checkpoint.x, checkpoint.y - 120 < 0 ? checkpoint.y : checkpoint.y);
-  player.body.y = checkpoint.y;
-  // drop-in start: lift X above his spawn for the teleport landing
-  player.body.y -= 0; player.body.vy = 0;
-  player.body.x = checkpoint.x;
-  player.state = 'spawn';
-  cam.snap(player.x, player.y);
+  players.forEach((p, i) => {
+    p.place(checkpoint.x + i * 20, checkpoint.y);
+    p.respawnT = 0;
+  });
+  cam.snap(checkpoint.x, checkpoint.y - 14);
   fade = 30;
 }
 
+function assignPads() {
+  const n = connectedPads().length;
+  if (players.length === 2) {
+    if (n >= 2) { inputs[0].padIndex = 0; inputs[1].padIndex = 1; inputs[0].useKeyboard = true; }
+    else { inputs[0].padIndex = -1; inputs[0].useKeyboard = true; inputs[1].padIndex = n ? 0 : -1; }
+  } else { inputs[0].padIndex = n ? 0 : -1; inputs[0].useKeyboard = true; }
+}
+
+function focusPoint() {
+  const alive = players.filter(p => p.state !== 'dead');
+  const list = alive.length ? alive : players;
+  const fx_ = list.reduce((s, p) => s + p.x, 0) / list.length;
+  const fy = list.reduce((s, p) => s + p.y, 0) / list.length;
+  return { x: fx_, y: fy - 14 };
+}
+
 function update() {
-  input.poll();
+  assignPads();
+  inputs.forEach(i => i.poll());
+  const in1 = inputs[0];
+
   if (state === 'menu') {
-    if (input.pressed('down')) menuIdx = (menuIdx + 1) % levelsDef.levels.length;
-    if (input.pressed('up')) menuIdx = (menuIdx + levelsDef.levels.length - 1) % levelsDef.levels.length;
-    if (input.pressed('start') || input.pressed('jump')) startLevel(levelsDef.levels[menuIdx]);
+    const items = phase === 'mode' ? MODES : levelsDef.levels;
+    const idx = phase === 'mode' ? modeIdx : levelIdx;
+    let next = idx;
+    if (in1.pressed('down')) next = (idx + 1) % items.length;
+    if (in1.pressed('up')) next = (idx + items.length - 1) % items.length;
+    if (phase === 'mode') modeIdx = next; else levelIdx = next;
+    if (in1.pressed('start') || in1.pressed('jump')) {
+      if (phase === 'mode') phase = 'level';
+      else startLevel(levelsDef.levels[levelIdx], MODES[modeIdx].chars);
+    }
+    if (in1.pressed('dash') && phase === 'level') phase = 'mode'; // back
     return;
   }
   if (state !== 'play') return;
   if (fade > 0) fade--;
 
-  player.update(level);
-  cam.update(player.x, player.y - 14, player.facing);
+  players.forEach(p => p.update(level));
 
-  // checkpoints
+  const f = focusPoint();
+  cam.update(f.x, f.y, players.length === 1 ? players[0].facing : 0);
+
+  // checkpoints (any player can claim)
   for (const c of level.checkpoints) {
-    if (Math.abs(player.x - c.x) < 12 && Math.abs(player.y - c.y) < 40) checkpoint = { ...c };
+    for (const p of players) {
+      if (p.alive && Math.abs(p.x - c.x) < 12 && Math.abs(p.y - c.y) < 40) checkpoint = { ...c };
+    }
   }
 
   // enemies
-  const viewPad = 60;
   for (const e of enemies) {
-    if (Math.abs(e.x - (cam.x + CFG.view.w / 2)) > CFG.view.w / 2 + viewPad * 2) continue; // sleep offscreen
-    e.update(level, player);
-    // player shots vs enemy
-    for (const s of player.shots) {
-      if (s.hit) continue;
-      if (Math.abs(s.x - e.x) < e.spec.w / 2 + 4 && s.y > e.body.top() - 4 && s.y < e.body.bottom() + 4) {
-        e.damage(s.dmg);
-        s.hit = true;
-        fx.spawn('hit_spark', s.x, s.y + 12, 1);
+    if (Math.abs(e.x - (cam.x + CFG.view.w / 2)) > CFG.view.w * 1.5) continue;
+    e.update(level, players);
+    for (const p of players) {
+      for (const s of p.shots) {
+        if (s.hit) continue;
+        if (Math.abs(s.x - e.x) < e.spec.w / 2 + 4 && s.y > e.body.top() - 4 && s.y < e.body.bottom() + 4) {
+          e.damage(s.dmg); s.hit = true;
+          fx.spawn('hit_spark', s.x, s.y + 12, 1);
+        }
       }
-    }
-    player.shots = player.shots.filter(s => !s.hit || s.kind === 'full'); // full pierces
-    // contact + enemy bullets vs player
-    if (e.alive && player.state === 'play' && player.body.overlaps(e.body)) player.hit(e.spec.dmg, e.x);
-    for (const s of e.shots) {
-      if (Math.abs(s.x - player.x) < 8 && s.y > player.body.top() && s.y < player.body.bottom()) {
-        player.hit(e.spec.dmg, s.x); s.life = 0;
+      p.shots = p.shots.filter(s => !s.hit || s.kind === 'full');
+      if (e.alive && p.state === 'play' && p.body.overlaps(e.body)) p.hit(e.spec.dmg, e.x);
+      for (const s of e.shots) {
+        if (Math.abs(s.x - p.x) < 8 && s.y > p.body.top() && s.y < p.body.bottom()) {
+          p.hit(e.spec.dmg, s.x); s.life = 0;
+        }
       }
     }
     if (!e.alive && !e.exploded) { e.exploded = true; fx.explode(e.x, e.y - e.spec.h / 2); }
@@ -95,8 +135,21 @@ function update() {
 
   fx.update();
 
-  if (player.dead) respawn();
-  if (input.pressed('start')) state = 'menu';
+  // respawns: solo death restarts at checkpoint; co-op partner teleports in
+  // next to the survivor; both down = full checkpoint restart
+  const deadAll = players.every(p => p.state === 'dead');
+  if (deadAll) {
+    if (players.every(p => p.dead)) fullRespawn();
+  } else {
+    for (const p of players) {
+      if (!p.dead) continue;
+      if (players.length === 1) { fullRespawn(); break; }
+      const buddy = players.find(q => q !== p && q.state !== 'dead');
+      if (buddy) p.place(buddy.x, buddy.y - 4);
+    }
+  }
+
+  if (in1.pressed('start')) { state = 'menu'; phase = 'mode'; }
 }
 
 function draw() {
@@ -106,7 +159,6 @@ function draw() {
   if (state === 'menu') { drawMenu(); return; }
   if (state !== 'play') return;
 
-  // bg with parallax
   if (level.bg) {
     const px = -Math.round(cam.x * 0.4) % level.bg.width;
     const py = -Math.round(Math.max(0, cam.y * 0.25));
@@ -115,13 +167,32 @@ function draw() {
   }
   g.drawImage(level.game, -cam.ix, -cam.iy);
   for (const e of enemies) e.draw(g, cam);
-  player.draw(g, cam);
+  players.forEach(p => p.draw(g, cam));
   fx.draw(g, cam);
   if (level.fg) g.drawImage(level.fg, -cam.ix, -cam.iy);
 
-  drawHUD(g, player);
+  drawHUD(g, players);
+  drawOffscreenArrows();
 
   if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade / 30})`; g.fillRect(0, 0, vw, vh); }
+}
+
+// edge arrows pointing to partners who left the screen
+function drawOffscreenArrows() {
+  if (players.length < 2) return;
+  for (const p of players) {
+    if (p.state === 'dead') continue;
+    const sx = p.x - cam.ix, sy = p.y - 14 - cam.iy;
+    if (sx >= 0 && sx <= CFG.view.w && sy >= 0 && sy <= CFG.view.h) continue;
+    const cx = Math.max(6, Math.min(CFG.view.w - 6, sx));
+    const cy = Math.max(6, Math.min(CFG.view.h - 6, sy));
+    const a = Math.atan2(sy - cy, sx - cx);
+    g.save();
+    g.translate(cx, cy); g.rotate(a);
+    g.fillStyle = p.charId === 'rush' ? '#ff6a5e' : '#6fb8ff';
+    g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, -4); g.lineTo(-4, 4); g.closePath(); g.fill();
+    g.restore();
+  }
 }
 
 function drawMenu() {
@@ -134,13 +205,19 @@ function drawMenu() {
   g.fillStyle = '#38506e'; g.font = '8px monospace';
   g.fillText('a nonprofit fan work', CFG.view.w / 2, 66);
   g.font = '10px monospace';
-  levelsDef.levels.forEach((l, i) => {
-    g.fillStyle = i === menuIdx ? '#ffe08a' : '#8aa0b8';
-    g.fillText((i === menuIdx ? '> ' : '') + l.name, CFG.view.w / 2, 104 + i * 16);
+  const items = phase === 'mode' ? MODES.map(m => m.label) : levelsDef.levels.map(l => l.name);
+  const idx = phase === 'mode' ? modeIdx : levelIdx;
+  g.fillStyle = '#586a80';
+  g.fillText(phase === 'mode' ? 'SELECT MODE' : 'SELECT STAGE', CFG.view.w / 2, 88);
+  items.forEach((label, i) => {
+    g.fillStyle = i === idx ? '#ffe08a' : '#8aa0b8';
+    g.fillText((i === idx ? '> ' : '') + label, CFG.view.w / 2, 108 + i * 16);
   });
   g.fillStyle = '#586a80';
-  g.fillText('ENTER / START to play', CFG.view.w / 2, CFG.view.h - 32);
-  g.fillText('Z jump · X fire (hold=charge) · C dash', CFG.view.w / 2, CFG.view.h - 18);
+  const pads = connectedPads().length;
+  g.fillText(`${pads} controller${pads === 1 ? '' : 's'} connected`, CFG.view.w / 2, CFG.view.h - 46);
+  g.fillText('ENTER / START to confirm' + (phase === 'level' ? ' · C back' : ''), CFG.view.w / 2, CFG.view.h - 32);
+  g.fillText('Z jump (again in air = fly) · X fire · C dash', CFG.view.w / 2, CFG.view.h - 18);
   g.textAlign = 'left';
 }
 
@@ -151,11 +228,7 @@ function fit() {
 }
 addEventListener('resize', fit);
 
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+function loop() { update(); draw(); requestAnimationFrame(loop); }
 
 canvas.width = CFG.view.w; canvas.height = CFG.view.h;
 fit();

@@ -1,26 +1,35 @@
 import { CFG } from './config.js';
 
 const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'fire', 'dash', 'start'];
+const keyDown = new Set();
+addEventListener('keydown', e => {
+  keyDown.add(e.code);
+  if (ACTIONS.some(a => CFG.keys[a] && CFG.keys[a].includes(e.code))) e.preventDefault();
+});
+addEventListener('keyup', e => keyDown.delete(e.code));
+addEventListener('blur', () => keyDown.clear());
 
-class Input {
-  constructor() {
+export function connectedPads() {
+  const list = navigator.getGamepads ? navigator.getGamepads() : [];
+  return [...list].filter(p => p && p.connected);
+}
+
+// One Input per player. useKeyboard merges keyboard state; padIndex points
+// into the *connected* pad list (-1 = no pad). game.js reassigns padIndex
+// each frame so pads can connect late or in any order.
+export class Input {
+  constructor(useKeyboard, padIndex) {
+    this.useKeyboard = useKeyboard;
+    this.padIndex = padIndex;
     this.held = {}; this.prev = {};
-    this.keyDown = new Set();
     ACTIONS.forEach(a => { this.held[a] = false; this.prev[a] = false; });
-    addEventListener('keydown', e => { this.keyDown.add(e.code); if (this._mapped(e.code)) e.preventDefault(); });
-    addEventListener('keyup', e => this.keyDown.delete(e.code));
-    addEventListener('blur', () => this.keyDown.clear());
   }
-  _mapped(code) { return ACTIONS.some(a => CFG.keys[a] && CFG.keys[a].includes(code)); }
-
   poll() {
     ACTIONS.forEach(a => this.prev[a] = this.held[a]);
     const k = {};
-    ACTIONS.forEach(a => k[a] = (CFG.keys[a] || []).some(c => this.keyDown.has(c)));
-    // gamepad
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const p of pads) {
-      if (!p || !p.connected) continue;
+    ACTIONS.forEach(a => k[a] = this.useKeyboard && (CFG.keys[a] || []).some(c => keyDown.has(c)));
+    const p = this.padIndex >= 0 ? connectedPads()[this.padIndex] : null;
+    if (p) {
       const b = i => p.buttons[i] && p.buttons[i].pressed;
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0, dz = CFG.pad.deadzone;
       k.left  = k.left  || ax < -dz || b(14);
@@ -31,7 +40,6 @@ class Input {
       k.fire  = k.fire  || b(CFG.pad.fire) || b(CFG.pad.fireAlt);
       k.dash  = k.dash  || b(CFG.pad.dash) || b(CFG.pad.dashAlt);
       k.start = k.start || b(CFG.pad.start);
-      break; // first connected pad wins
     }
     ACTIONS.forEach(a => this.held[a] = !!k[a]);
   }
@@ -39,4 +47,3 @@ class Input {
   released(a) { return !this.held[a] && this.prev[a]; }
   down(a) { return this.held[a]; }
 }
-export const input = new Input();

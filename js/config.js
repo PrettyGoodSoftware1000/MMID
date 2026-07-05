@@ -12,7 +12,15 @@ export const CFG = {
   wallSlideMaxFall: 1.2,
   wallKick: { vx: 1.5, vxDash: 3.5, vy: -4.95, lockFrames: 9 },
   stepUp: 4,                         // slope tolerance (px auto-climb)
-  player: { hitW: 12, hitH: 28, hp: 16, iFrames: 90, hurtKnockX: 1.0, hurtFrames: 24 },
+  player: { hp: 16, iFrames: 90, hurtKnockX: 1.0, hurtFrames: 24 },
+  // Character capability definitions. flipBase = which way the sheet faces (1 right, -1 left).
+  chars: {
+    x:    { name: 'X', sheet: 'assets/x.png', hitW: 12, hitH: 28, flipBase: 1,
+            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -16 },
+    rush: { name: 'RUSH', sheet: 'assets/rush.png', hitW: 22, hitH: 24, flipBase: -1,
+            dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -20,
+            flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },
+  },
   buster: {
     maxOnScreen: 3,
     lemon: { speed: 6, dmg: 1 },

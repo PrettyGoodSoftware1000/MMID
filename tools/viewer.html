@@ -6,6 +6,7 @@
 <style>
   body { background: #0b0e14; color: #cfd8e3; font: 12px monospace; margin: 20px; }
   h1 { font-size: 14px; color: #7ec8ff; }
+  h2 { font-size: 12px; color: #ffe08a; margin-top: 28px; }
   p { color: #6b7a8c; max-width: 70ch; }
   .grid { display: flex; flex-wrap: wrap; gap: 14px; }
   .cell { background: #131824; border: 1px solid #232c3e; padding: 8px; text-align: center; }
@@ -16,42 +17,57 @@
 </head>
 <body>
 <h1>Sprite map viewer</h1>
-<p>Every animation defined in <b>js/spritemap.js</b>, played live from the auto-sliced sheet.
-If one looks wrong, edit that entry's [row, index] list — rows and indices are counted
-top-to-bottom, left-to-right on the sheet. Refresh to see the fix.</p>
-<div class="grid" id="grid"></div>
+<p>Every animation for every character, played live from the auto-sliced sheets.
+If one looks wrong, edit that entry's [row, index] list in <b>js/spritemap.js</b> (X)
+or <b>js/rushmap.js</b> (Rush) — rows and indices count top-to-bottom, left-to-right
+on the sheet. Refresh to see the fix.</p>
+<div id="root"></div>
 <script type="module">
 import { loadSheet } from '../js/assets.js';
 import { sliceSheet } from '../js/slicer.js';
 import { X_MAP, Animator } from '../js/spritemap.js';
+import { RUSH_MAP } from '../js/rushmap.js';
+import { CFG } from '../js/config.js';
 
-const sheet = await loadSheet('../assets/x.png');
-const rows = sliceSheet(sheet);
-const grid = document.getElementById('grid');
+const CHARS = [
+  { id: 'x', map: X_MAP },
+  { id: 'rush', map: RUSH_MAP },
+];
+const root = document.getElementById('root');
 const cells = [];
 
-for (const name of Object.keys(X_MAP)) {
-  const div = document.createElement('div');
-  div.className = 'cell';
-  const c = document.createElement('canvas');
-  c.width = 72; c.height = 72; c.style.width = '144px'; c.style.height = '144px';
-  const label = document.createElement('span'); label.textContent = name;
-  const info = document.createElement('small');
-  info.textContent = X_MAP[name].frames.map(f => f.join(':')).join(' ');
-  div.append(c, label, info);
-  grid.append(div);
-  const a = new Animator(sheet, rows, X_MAP);
-  a.set(name, true);
-  cells.push({ a, g: c.getContext('2d'), name });
+for (const c of CHARS) {
+  const sheet = await loadSheet('../' + CFG.chars[c.id].sheet);
+  const rows = sliceSheet(sheet);
+  const h2 = document.createElement('h2');
+  h2.textContent = CFG.chars[c.id].name + ' — ' + CFG.chars[c.id].sheet;
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  root.append(h2, grid);
+  for (const name of Object.keys(c.map)) {
+    const div = document.createElement('div');
+    div.className = 'cell';
+    const cv = document.createElement('canvas');
+    cv.width = 80; cv.height = 80; cv.style.width = '160px'; cv.style.height = '160px';
+    const label = document.createElement('span'); label.textContent = name;
+    const info = document.createElement('small');
+    info.textContent = c.map[name].frames.map(f => f.join(':')).join(' ');
+    div.append(cv, label, info);
+    grid.append(div);
+    const a = new Animator(sheet, rows, c.map);
+    a.set(name, true);
+    const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    cells.push({ a, g, name });
+  }
 }
-cells.forEach(c => c.g.imageSmoothingEnabled = false);
 
 function loop() {
   for (const c of cells) {
     c.a.tick();
-    if (c.a.finished) c.a.set(c.name, true); // restart one-shots
-    c.g.clearRect(0, 0, 72, 72);
-    c.a.draw(c.g, 36, 64, 1);
+    if (c.a.finished) c.a.set(c.name, true);
+    c.g.clearRect(0, 0, 80, 80);
+    c.a.draw(c.g, 40, 72, 1);
   }
   requestAnimationFrame(loop);
 }
