@@ -1,4 +1,4 @@
-# MegaMan is Dead
+# M is Dead
 
 A browser fan game in the style of the SNES Mega Man X series. Pure HTML/JS/Canvas, no build step, no dependencies — made for GitHub Pages. Non-commercial personal fan work.
 
@@ -68,6 +68,4 @@ Everything lives in `js/config.js`: physics (gravity, run/dash speed, jump veloc
 - Camera is free-follow; MMX-style locked camera zones can be added as rects in the level JSON.
 - No boss, weapons menu, or armor pickups yet.
 
-## A note on assets
 
-The player sheet is a rip of Capcom's copyrighted art, used here as a non-commercial fan work. Hosting it in a public repo carries takedown risk — consider a private repo, or keep art out of the repo and load it locally.
