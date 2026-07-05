@@ -228,7 +228,18 @@ function fit() {
 }
 addEventListener('resize', fit);
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+// Fixed 60fps simulation regardless of display refresh rate. rAF fires at the
+// monitor's rate (120/144Hz+), so stepping once per frame ran everything fast.
+const STEP = 1000 / 60;
+let last = null, acc = 0;
+function loop(now) {
+  if (last === null) last = now;
+  acc = Math.min(acc + (now - last), 250);   // cap catch-up after tab-out
+  last = now;
+  while (acc >= STEP) { update(); acc -= STEP; }
+  draw();
+  requestAnimationFrame(loop);
+}
 
 canvas.width = CFG.view.w; canvas.height = CFG.view.h;
 fit();

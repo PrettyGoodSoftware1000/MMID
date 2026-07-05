@@ -1,20 +1,24 @@
 import { CFG } from './config.js';
 import { loadImage, toCanvas } from './assets.js';
 
-// A level is a folder of same-sized PNGs: bg (visual, parallax), game (collision
-// + visual), fg (visual, drawn over entities), enemies (marker dots, never drawn).
-// game.png alpha: >=solidAlpha solid, oneWay range = platform solid from above.
+// A level is a folder of same-sized PNGs named after the folder:
+//   <name>_background.png  visual only, parallax
+//   <name>_playarea.png    collision layer + main stage art
+//   <name>_foreground.png  visual only, drawn over entities
+//   <name>_enemies.png     marker dots, never drawn
+// playarea alpha: >=solidAlpha solid, oneWay range = platform solid from above.
 
 const EMPTY = 0, SOLID = 1, ONEWAY = 2;
 
 export class Level {
   static async load(def) {
     const base = def.path.replace(/\/$/, '') + '/';
+    const prefix = base.split('/').filter(Boolean).pop() + '_';
     const [bg, game, fg, enemies] = await Promise.all(
-      ['bg', 'game', 'fg', 'enemies'].map(n =>
-        loadImage(base + n + '.png').then(toCanvas).catch(() => null))
+      ['background', 'playarea', 'foreground', 'enemies'].map(n =>
+        loadImage(base + prefix + n + '.png').then(toCanvas).catch(() => null))
     );
-    if (!game) throw new Error('level missing game.png');
+    if (!game) throw new Error('level missing ' + prefix + 'playarea.png');
     return new Level(def, bg, game, fg, enemies);
   }
 

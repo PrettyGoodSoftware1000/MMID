@@ -2,6 +2,8 @@
 // Verify/adjust with tools/viewer.html — each entry is one line to fix.
 // fps = animation speed, loop = wraps, ox/oy = draw offset from feet-center anchor.
 
+import { CFG } from './config.js';
+
 export const X_MAP = {
   teleport_in: { frames: r(1, [0, 1, 2, 3, 4, 5, 6]), fps: 14, loop: false },
   idle:        { frames: r(2, [1, 2, 3, 4, 5]), fps: 4, loop: true },
@@ -38,7 +40,7 @@ export class Animator {
     this.def = this.map[name] || this.map.idle;
   }
   tick() {
-    this.t += this.def.fps / 60;
+    this.t += this.def.fps * CFG.animSpeed / 60;
     const n = this.def.frames.length;
     if (this.t >= 1) {
       this.t -= 1;
@@ -54,14 +56,19 @@ export class Animator {
     return r || { x: 0, y: 0, w: 1, h: 1 };
   }
   // Draw anchored at feet-center (x = center, y = feet), flipped when facing < 0.
-  draw(g, x, y, facing = 1, name = this.name, frame = this.frame) {
+  // opts.center anchors at the sprite's middle instead (projectiles);
+  // opts.scale shrinks/grows around the anchor.
+  draw(g, x, y, facing = 1, name = this.name, frame = this.frame, opts = {}) {
     const r = this.rect(name, frame);
     const def = this.map[name] || {};
     const ox = def.ox || 0, oy = def.oy || 0;
+    const scale = opts.scale || 1;
     g.save();
     g.translate(Math.round(x), Math.round(y));
     if (facing < 0) g.scale(-1, 1);
-    g.drawImage(this.sheet, r.x, r.y, r.w, r.h, Math.round(-r.w / 2 + ox), Math.round(-r.h + oy), r.w, r.h);
+    if (scale !== 1) g.scale(scale, scale);
+    const top = opts.center ? -r.h / 2 : -r.h;
+    g.drawImage(this.sheet, r.x, r.y, r.w, r.h, Math.round(-r.w / 2 + ox), Math.round(top + oy), r.w, r.h);
     g.restore();
   }
 }

@@ -84,13 +84,14 @@ export class Player {
     // ground fuel regen
     if (this.char.fly && b.onGround) this.fuel = Math.min(this.fuelMax, this.fuel + this.char.flight.regen);
 
-    // dash (capability-gated)
-    if (this.char.dash && this.in.pressed('dash') && b.onGround && this.dashT <= 0) {
+    // dash (capability-gated). dashLeft (LB/LT) always dashes left.
+    const dashLeftNow = this.in.pressed('dashLeft');
+    if (this.char.dash && (this.in.pressed('dash') || dashLeftNow) && b.onGround && this.dashT <= 0) {
       this.dashT = CFG.dashFrames; this.dashHeld = true;
-      this.facing = move !== 0 ? move : this.facing;
+      this.facing = dashLeftNow ? -1 : (move !== 0 ? move : this.facing);
       this.fx.spawn('dash_dust', this.x - this.facing * 10, this.y, this.facing);
     }
-    if (!this.in.down('dash')) this.dashHeld = false;
+    if (!this.in.down('dash') && !this.in.down('dashLeft')) this.dashHeld = false;
     const dashing = this.char.dash && this.dashT > 0 && b.onGround;
     if (this.dashT > 0) { this.dashT--; if (!this.dashHeld && this.dashT > 4) this.dashT = 4; }
 
@@ -133,13 +134,14 @@ export class Player {
     if (this.jumpBuf > 0) {
       if (this.coyote > 0) {
         b.vy = CFG.jumpVel;
-        this.dashJump = this.char.dash && (this.dashT > 0 || dashing || (this.in.down('dash') && Math.abs(b.vx) >= CFG.dashSpeed - 0.1));
+        const dashDown = this.in.down('dash') || this.in.down('dashLeft');
+        this.dashJump = this.char.dash && (this.dashT > 0 || dashing || (dashDown && Math.abs(b.vx) >= CFG.dashSpeed - 0.1));
         this.dashT = 0; this.coyote = 0; this.jumpBuf = 0;
       } else if (slidingDir !== 0) {
         this.wallDir = slidingDir;
         this.wallLock = CFG.wallKick.lockFrames;
         b.vy = CFG.wallKick.vy;
-        this.dashJump = this.in.down('dash');
+        this.dashJump = this.in.down('dash') || this.in.down('dashLeft');
         this.facing = -slidingDir;
         this.jumpBuf = 0;
         this.anim.set('wall_kick', true);
@@ -153,11 +155,13 @@ export class Player {
         return;
       }
     }
-    if (this.in.released('jump') && b.vy < -1.5) b.vy = -1.5;
+    if (this.in.released('jump') && b.vy < CFG.jumpCutVel) b.vy = CFG.jumpCutVel;
 
-    // gravity / wall slide
-    if (slidingDir !== 0 && b.vy > 0) b.vy = Math.min(b.vy + CFG.gravity, CFG.wallSlideMaxFall);
-    else b.vy = Math.min(b.vy + CFG.gravity, CFG.maxFall);
+    // gravity / wall slide. Holding jump while rising lightens gravity,
+    // so a held jump climbs higher than a tap.
+    const grav = b.vy < 0 && this.in.down('jump') ? CFG.gravity * CFG.jumpHoldGravity : CFG.gravity;
+    if (slidingDir !== 0 && b.vy > 0) b.vy = Math.min(b.vy + grav, CFG.wallSlideMaxFall);
+    else b.vy = Math.min(b.vy + grav, CFG.maxFall);
 
     const dropThrough = this.in.down('down') && this.in.pressed('jump');
     b.moveX(level, b.vx);
@@ -201,7 +205,7 @@ export class Player {
       kind, x: this.x + dir * this.char.shootX, y: this.y + this.char.shootY,
       vx: dir * spec.speed, dmg: spec.dmg, dir,
     });
-    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY + 8, dir);
+    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY + 4, dir);
     this.shootT = B.shootPose;
   }
 
@@ -237,7 +241,8 @@ export class Player {
     this.anim.draw(g, this.x - cam.ix, this.y - cam.iy, this.facing * this.char.flipBase);
     for (const s of this.shots) {
       const name = s.kind === 'full' ? 'shot_full' : s.kind === 'mid' ? 'shot_mid' : 'shot_lemon';
-      this.anim.draw(g, s.x - cam.ix, s.y + 4 - cam.iy, s.dir * this.char.flipBase, name, 0);
+      this.anim.draw(g, s.x - cam.ix, s.y - cam.iy, s.dir * this.char.flipBase, name, 0,
+        { center: true, scale: s.kind === 'full' ? B.full.scale : 1 });
     }
   }
 }

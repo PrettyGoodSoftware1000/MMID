@@ -35,7 +35,9 @@ export function sliceSheet(canvas, minPixels = 12) {
     next++;
   }
 
-  const good = boxes.filter(b => b.px >= minPixels);
+  // Drop border frames / banner strips: any shape spanning most of the sheet
+  // is decoration, not a frame, and would swallow every row into one.
+  const good = boxes.filter(b => b.px >= minPixels && b.w < W * 0.8 && b.h < H * 0.8);
   good.sort((p, q) => p.y - q.y || p.x - q.x);
   const rows = [];
   for (const b of good) {

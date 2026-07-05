@@ -31,24 +31,27 @@ In 2P mode the camera follows the midpoint between both players; small edge arro
 | Jump / fly toggle (in air, Rush) | Z / Space | A (button 0) |
 | Fire (hold to charge) | X / J | X (button 2) or B |
 | Dash (X only) | C / Shift / K | RB or RT |
+| Dash left (X only) | — | LB or LT |
 | Start / back to menu | Enter | Start |
+
+Jump height is variable: hold jump to climb higher, tap for a short hop (`jumpHoldGravity` / `jumpCutVel` in `js/config.js`).
 
 Wall slide (X): hold toward a wall while falling. Wall kick: jump while sliding. Hold dash during a wall kick for a long dash-kick (needed to cross the wide shaft in the test level — Rush just flies over it).
 
 ## Level format
 
-A level is a folder under `levels/` containing four same-sized PNGs plus one entry in `levels.json`:
+A level is a folder under `levels/` containing four same-sized PNGs plus one entry in `levels.json`. The files are named after the folder (e.g. the `test` level uses `test_background.png`):
 
 | File | Role |
 |---|---|
-| `bg.png` | Visual only, drawn behind with parallax |
-| `game.png` | The collision layer — also drawn as the main stage art |
-| `fg.png` | Visual only, drawn in front of the player/enemies |
-| `enemies.png` | Marker dots only, never drawn |
+| `<name>_background.png` | Visual only, drawn behind with parallax |
+| `<name>_playarea.png` | The collision layer — also drawn as the main stage art |
+| `<name>_foreground.png` | Visual only, drawn in front of the player/enemies |
+| `<name>_enemies.png` | Marker dots only, never drawn |
 
-**game.png alpha semantics:** pixels with alpha ≥ 250 are solid; alpha 80–200 is a one-way platform (solid from above only); everything else is free space. So: paint your stage art at full opacity, paint one-way ledges at ~55% opacity, leave the rest transparent.
+**playarea alpha semantics:** pixels with alpha ≥ 250 are solid; alpha 80–200 is a one-way platform (solid from above only); everything else is free space. So: paint your stage art at full opacity, paint one-way ledges at ~55% opacity, leave the rest transparent.
 
-**enemies.png marker colors** (exact RGB, any blob shape — the centroid is the spawn point):
+**enemies-layer marker colors** (exact RGB, any blob shape — the centroid is the spawn point):
 
 | Color | Meaning |
 |---|---|
@@ -60,13 +63,15 @@ A level is a folder under `levels/` containing four same-sized PNGs plus one ent
 
 Add types by extending `CFG.markers` in `js/config.js` and `CATALOG` in `js/enemies.js`.
 
-To add a level: create the folder, drop in the four PNGs, add `{ "name": "MY STAGE", "path": "levels/mystage" }` to `levels.json`. Optional `"spawn": {"x":…,"y":…}` overrides the yellow marker.
+To add a level: create the folder, drop in the four PNGs, add `{ "name": "MY STAGE", "path": "levels/mystage" }` to `levels.json`. Optional `"spawn": {"x":…,"y":…}` overrides the yellow marker. (`levels.json` stays necessary: browsers can't list server folders, so the game needs a manifest to know which levels exist.)
 
 ## Sprite sheet system
 
 Character sheets (`assets/x.png`, `assets/rush.png`) are auto-sliced at load: connected pixel regions become frames, grouped into rows. Animations in `js/spritemap.js` (X) and `js/rushmap.js` (Rush) reference frames as `[row, index]` (top-to-bottom, left-to-right). Opaque background colors (teal, blue, etc.) are knocked out automatically using the image's most common color as the key — corner sampling would fail on sheets with border frames.
 
 **Open `tools/viewer.html`** (via the local server) to see every mapped animation for both characters playing. If one looks wrong, edit its `[row, index]` list in `spritemap.js` and refresh. This same slicer will drive enemy/weapon sheets later — enemy `CATALOG` entries already reserve `sheet`/`anims` fields.
+
+**`tools/BadGuyMaker.html`** (also via the local server) builds enemy definitions graphically: load a sprite sheet and shot sheet, preview the sliced animations and a Mega Man-style health bar, set health / shot damage / speed / jump, and save the result as a `.json` to place under `enemies/<name>/`.
 
 ## Tuning
 

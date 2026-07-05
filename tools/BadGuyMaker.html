@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BadGuyMaker — MegaMan is Dead</title>
+<style>
+  body { background: #0b0e14; color: #cfd8e3; font: 12px monospace; margin: 20px; }
+  h1 { font-size: 14px; color: #7ec8ff; }
+  h2 { font-size: 12px; color: #ffe08a; margin: 24px 0 8px; }
+  p.hint { color: #6b7a8c; max-width: 78ch; margin: 4px 0 12px; }
+  .columns { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .panel { background: #131824; border: 1px solid #232c3e; padding: 14px; min-width: 300px; }
+  label { display: block; margin: 10px 0 2px; color: #8aa0b8; }
+  input[type=text], input[type=number] {
+    background: #05070c; border: 1px solid #2a3448; color: #e8eef6;
+    font: 12px monospace; padding: 4px 6px; width: 180px;
+  }
+  input[type=number] { width: 80px; }
+  input:disabled { opacity: 0.35; }
+  input[type=file] { color: #8aa0b8; margin-top: 2px; }
+  canvas { image-rendering: pixelated; background: #05070c; display: block; }
+  .previewRow { display: flex; gap: 18px; align-items: flex-end; margin-top: 8px; }
+  .previewRow figure { margin: 0; text-align: center; }
+  .previewRow figcaption { color: #56677c; margin-top: 4px; }
+  #animGrid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .animCell { background: #0e1320; border: 1px solid #232c3e; padding: 8px; text-align: center; }
+  .animCell canvas { margin: 0 auto 6px; }
+  .animCell input[type=text] { width: 90px; }
+  .animCell input[type=number] { width: 44px; }
+  .animCell small { color: #56677c; display: block; margin-top: 4px; }
+  button {
+    background: #1c2a44; border: 1px solid #3a4c6e; color: #7ec8ff;
+    font: bold 12px monospace; padding: 8px 18px; cursor: pointer; margin-top: 18px;
+  }
+  button:hover { background: #24365a; }
+  #jsonOut { white-space: pre; background: #05070c; border: 1px solid #232c3e;
+             padding: 10px; margin-top: 12px; color: #9fd08a; max-width: 60ch; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>BadGuyMaker</h1>
+<p class="hint">Build an enemy definition and save it as JSON. Drop the saved file into
+<b>enemies/&lt;name&gt;/</b> at the repo root, alongside the sprite sheet image(s) it references.
+Uploaded sheets get their background color knocked out and are auto-sliced with the same
+slicer the game uses, so what you see here is what the game will see.</p>
+
+<div class="columns">
+  <div class="panel">
+    <h2>Stats</h2>
+    <label>Name</label>
+    <input type="text" id="name" value="badguy" spellcheck="false">
+    <label>Health</label>
+    <input type="number" id="health" value="5" min="1" max="64">
+    <label>Shot damage</label>
+    <input type="number" id="shotDamage" value="2" min="0" max="16">
+    <label>Movement speed (px/frame)</label>
+    <input type="number" id="moveSpeed" value="0.6" min="0" max="8" step="0.1">
+    <label><input type="checkbox" id="canJump"> Can jump</label>
+    <label>Jump height (velocity, px/frame)</label>
+    <input type="number" id="jumpHeight" value="4.0" min="0" max="12" step="0.1" disabled>
+    <button id="save">Save .json</button>
+    <div id="jsonOut" hidden></div>
+  </div>
+
+  <div class="panel">
+    <h2>Enemy</h2>
+    <label>Sprite sheet (png)</label>
+    <input type="file" id="sheetFile" accept="image/png">
+    <div class="previewRow">
+      <figure><canvas id="enemyPreview" width="64" height="64" style="width:192px;height:192px"></canvas>
+        <figcaption>enemy</figcaption></figure>
+      <figure><canvas id="healthBar" width="18" height="84" style="width:54px;height:252px"></canvas>
+        <figcaption>health</figcaption></figure>
+      <figure><canvas id="shotPreview" width="48" height="32" style="width:144px;height:96px"></canvas>
+        <figcaption>shot</figcaption></figure>
+    </div>
+    <label>Shot sheet (png, frames animate left-to-right)</label>
+    <input type="file" id="shotFile" accept="image/png">
+    <label>Shot animation fps</label>
+    <input type="number" id="shotFps" value="10" min="1" max="60">
+  </div>
+</div>
+
+<h2>Animations</h2>
+<p class="hint">Every sliced row of the enemy sheet plays below. Name the rows you want to
+keep (blank = not exported) and set an fps for each. Named rows are saved into the JSON as
+animations, using the same [row, index] convention as the player sprite maps.</p>
+<div id="animGrid"><p class="hint">Load an enemy sprite sheet to see its rows.</p></div>
+
+<script type="module">
+import { loadImage, toCanvas, knockoutKeyColor } from '../js/assets.js';
+import { sliceSheet } from '../js/slicer.js';
+
+const $ = id => document.getElementById(id);
+
+let enemySheet = null, enemyRows = [], enemySheetName = '';
+let shotSheet = null, shotFrames = [], shotSheetName = '';
+const rowInputs = [];   // { nameEl, fpsEl } per sliced row
+
+$('canJump').addEventListener('change', e => $('jumpHeight').disabled = !e.target.checked);
+
+async function readSheet(file) {
+  const url = URL.createObjectURL(file);
+  try { return knockoutKeyColor(toCanvas(await loadImage(url))); }
+  finally { URL.revokeObjectURL(url); }
+}
+
+$('sheetFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  enemySheet = await readSheet(file);
+  enemySheetName = file.name;
+  enemyRows = sliceSheet(enemySheet);
+  buildAnimGrid();
+});
+
+$('shotFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  shotSheet = await readSheet(file);
+  shotSheetName = file.name;
+  // one shot = the first sliced row, frames animating left-to-right
+  shotFrames = sliceSheet(shotSheet)[0] || [];
+});
+
+function buildAnimGrid() {
+  const grid = $('animGrid');
+  grid.innerHTML = '';
+  rowInputs.length = 0;
+  enemyRows.forEach((frames, row) => {
+    const cell = document.createElement('div');
+    cell.className = 'animCell';
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 64; cv.style.width = '128px'; cv.style.height = '128px';
+    const nameEl = document.createElement('input');
+    nameEl.type = 'text'; nameEl.placeholder = 'name (blank=skip)'; nameEl.spellcheck = false;
+    const fpsEl = document.createElement('input');
+    fpsEl.type = 'number'; fpsEl.value = 8; fpsEl.min = 1; fpsEl.max = 60; fpsEl.title = 'fps';
+    const info = document.createElement('small');
+    info.textContent = `row ${row} — ${frames.length} frame${frames.length === 1 ? '' : 's'}`;
+    cell.append(cv, nameEl, document.createTextNode(' '), fpsEl, info);
+    grid.append(cell);
+    rowInputs.push({ nameEl, fpsEl, cv: cv.getContext('2d'), frames });
+  });
+}
+
+// --- live previews, time-based so refresh rate doesn't matter ---
+function drawFrame(g, sheet, r, cw, ch) {
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cw, ch);
+  if (!r) return;
+  const s = Math.min(1, (cw - 4) / r.w, (ch - 4) / r.h);
+  const w = Math.round(r.w * s), h = Math.round(r.h * s);
+  g.drawImage(sheet, r.x, r.y, r.w, r.h, (cw - w) >> 1, (ch - h) >> 1, w, h);
+}
+
+function drawHealthBar(g) {
+  const max = 16, hp = Math.max(0, Math.min(max, +$('health').value || 0));
+  const x = 4, yTop = 8, cellH = 4, w = 10;
+  g.clearRect(0, 0, 18, 84);
+  g.fillStyle = '#101018'; g.fillRect(x - 2, yTop - 8, w + 4, max * cellH + 14);
+  g.fillStyle = '#e8e8f0'; g.fillRect(x, yTop - 6, w, 4);
+  for (let i = 0; i < max; i++) {
+    const filled = i < hp;
+    g.fillStyle = filled ? '#ffe9c9' : '#2a2a34';
+    g.fillRect(x, yTop + (max - 1 - i) * cellH, w, cellH - 1);
+    if (filled) { g.fillStyle = '#ff9d5c'; g.fillRect(x, yTop + (max - 1 - i) * cellH + cellH - 2, w, 1); }
+  }
+}
+
+const enemyG = $('enemyPreview').getContext('2d');
+const shotG = $('shotPreview').getContext('2d');
+const healthG = $('healthBar').getContext('2d');
+
+function loop(now) {
+  const t = now / 1000;
+  if (enemyRows.length) {
+    const frames = enemyRows[0];
+    drawFrame(enemyG, enemySheet, frames[Math.floor(t * 6) % frames.length], 64, 64);
+  }
+  if (shotFrames.length) {
+    const fps = +$('shotFps').value || 10;
+    drawFrame(shotG, shotSheet, shotFrames[Math.floor(t * fps) % shotFrames.length], 48, 32);
+  }
+  for (const r of rowInputs) {
+    const fps = +r.fpsEl.value || 8;
+    drawFrame(r.cv, enemySheet, r.frames[Math.floor(t * fps) % r.frames.length], 64, 64);
+  }
+  drawHealthBar(healthG);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// --- save ---
+$('save').addEventListener('click', () => {
+  const name = ($('name').value.trim() || 'badguy').replace(/\s+/g, '_').toLowerCase();
+  const anims = {};
+  rowInputs.forEach((r, row) => {
+    const n = r.nameEl.value.trim();
+    if (!n) return;
+    anims[n] = { row, indices: r.frames.map((_, i) => i), fps: +r.fpsEl.value || 8, loop: true };
+  });
+  const def = {
+    name,
+    health: +$('health').value || 1,
+    moveSpeed: +$('moveSpeed').value || 0,
+    canJump: $('canJump').checked,
+    jumpHeight: $('canJump').checked ? (+$('jumpHeight').value || 0) : 0,
+    shot: { damage: +$('shotDamage').value || 0, fps: +$('shotFps').value || 10,
+            sheet: shotSheetName || null },
+    sheet: enemySheetName || null,
+    anims,
+  };
+  const json = JSON.stringify(def, null, 2);
+  const out = $('jsonOut');
+  out.hidden = false; out.textContent = json;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = name + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>

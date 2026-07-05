@@ -1,6 +1,6 @@
 import { CFG } from './config.js';
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'fire', 'dash', 'start'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'fire', 'dash', 'dashLeft', 'start'];
 const keyDown = new Set();
 addEventListener('keydown', e => {
   keyDown.add(e.code);
@@ -39,6 +39,7 @@ export class Input {
       k.jump  = k.jump  || b(CFG.pad.jump);
       k.fire  = k.fire  || b(CFG.pad.fire) || b(CFG.pad.fireAlt);
       k.dash  = k.dash  || b(CFG.pad.dash) || b(CFG.pad.dashAlt);
+      k.dashLeft = k.dashLeft || b(CFG.pad.dashLeft) || b(CFG.pad.dashLeftAlt);
       k.start = k.start || b(CFG.pad.start);
     }
     ACTIONS.forEach(a => this.held[a] = !!k[a]);

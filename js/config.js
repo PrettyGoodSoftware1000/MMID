@@ -2,6 +2,7 @@
 // Physics values are per-frame at 60fps, in source pixels.
 export const CFG = {
   view: { w: 256, h: 224 },          // internal SNES-style resolution
+  animSpeed: 1.0,                    // global animation-rate multiplier (0.5 = half speed)
   gravity: 0.25,
   maxFall: 5.75,
   runSpeed: 1.5,
@@ -9,6 +10,8 @@ export const CFG = {
   dashFrames: 32,                    // ground dash duration
   airDash: false,                    // X1 has none; flip for X2 feel
   jumpVel: -4.95,
+  jumpHoldGravity: 0.65,             // gravity multiplier while rising with jump held
+  jumpCutVel: -1.5,                  // upward speed clamps to this when jump is released
   wallSlideMaxFall: 1.2,
   wallKick: { vx: 1.5, vxDash: 3.5, vy: -4.95, lockFrames: 9 },
   stepUp: 4,                         // slope tolerance (px auto-climb)
@@ -16,7 +19,7 @@ export const CFG = {
   // Character capability definitions. flipBase = which way the sheet faces (1 right, -1 left).
   chars: {
     x:    { name: 'X', sheet: 'assets/x.png', hitW: 12, hitH: 28, flipBase: 1,
-            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -16 },
+            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -26 },
     rush: { name: 'RUSH', sheet: 'assets/rush.png', hitW: 22, hitH: 24, flipBase: -1,
             dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -20,
             flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },
@@ -25,8 +28,8 @@ export const CFG = {
     maxOnScreen: 3,
     lemon: { speed: 6, dmg: 1 },
     mid:   { speed: 7, dmg: 2, chargeAt: 30 },   // frames of holding fire
-    full:  { speed: 8, dmg: 4, chargeAt: 85 },
-    shootPose: 16,                   // frames the shoot-variant anim lingers
+    full:  { speed: 8, dmg: 4, chargeAt: 85, scale: 0.8 },  // scale shrinks the drawn sprite
+    shootPose: 24,                   // frames the blaster-hand (shoot-variant) anim lingers
   },
   // Enemy-layer marker colors (exact match, RGB)
   markers: {
@@ -46,6 +49,7 @@ export const CFG = {
     jump: ['KeyZ', 'Space'], fire: ['KeyX', 'KeyJ'], dash: ['KeyC', 'ShiftLeft', 'KeyK'],
     start: ['Enter'],
   },
-  // Standard gamepad mapping indices
-  pad: { jump: 0, fire: 2, fireAlt: 1, dash: 5, dashAlt: 7, start: 9, deadzone: 0.35 },
+  // Standard gamepad mapping indices. dashLeft (LB/LT) dashes left regardless of facing.
+  pad: { jump: 0, fire: 2, fireAlt: 1, dash: 5, dashAlt: 7,
+         dashLeft: 4, dashLeftAlt: 6, start: 9, deadzone: 0.35 },
 };
