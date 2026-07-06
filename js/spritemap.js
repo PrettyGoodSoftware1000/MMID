@@ -23,10 +23,7 @@ export const X_MAP = {
   hurt:        { frames: r(11, [1, 2]), fps: 10, loop: true },
   hit_spark:   { frames: r(11, [5]), fps: 10, loop: false },
   dash_dust:   { frames: r(14, [0, 1, 2, 3, 4]), fps: 18, loop: false },
-  shot_lemon:  { frames: r(15, [3]), fps: 10, loop: true },
-  shot_mid:    { frames: r(15, [4]), fps: 10, loop: true },
-  shot_full:   { frames: r(0, [4, 5, 6]), fps: 12, loop: true },
-  muzzle:      { frames: r(15, [0, 1, 2]), fps: 20, loop: false },
+  // shots + muzzle now live on the shared buster sheet (bustermap.js)
 };
 
 function r(row, indices) { return indices.map(i => [row, i]); }

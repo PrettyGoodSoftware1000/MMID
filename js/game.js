@@ -4,6 +4,7 @@ import { loadSheet } from './assets.js';
 import { sliceSheet } from './slicer.js';
 import { X_MAP, Animator } from './spritemap.js';
 import { RUSH_MAP } from './rushmap.js';
+import { BUSTER_MAP } from './bustermap.js';
 import { Level } from './level.js';
 import { Camera } from './camera.js';
 import { Player } from './player.js';
@@ -32,17 +33,19 @@ async function boot() {
     sheets[id] = await loadSheet(CFG.chars[id].sheet);
     rows[id] = sliceSheet(sheets[id]);
   }
+  sheets.buster = await loadSheet(CFG.buster.sheet);
+  rows.buster = sliceSheet(sheets.buster);
   requestAnimationFrame(loop);
 }
 
-const MAPS = { x: X_MAP, rush: RUSH_MAP };
+const MAPS = { x: X_MAP, rush: RUSH_MAP, buster: BUSTER_MAP };
 const makeAnim = id => new Animator(sheets[id], rows[id], MAPS[id]);
 
 async function startLevel(def, chars) {
   state = 'loading';
   level = await Level.load(def);
-  fx = new Effects(() => makeAnim('x'));
-  players = chars.map((id, i) => new Player(id, makeAnim(id), fx, inputs[i]));
+  fx = new Effects(sheetId => makeAnim(sheetId));
+  players = chars.map((id, i) => new Player(id, makeAnim(id), makeAnim('buster'), fx, inputs[i]));
   checkpoint = { ...level.spawn };
   cam = new Camera(level);
   fullRespawn();
@@ -118,7 +121,7 @@ function update() {
         if (s.hit) continue;
         if (Math.abs(s.x - e.x) < e.spec.w / 2 + 4 && s.y > e.body.top() - 4 && s.y < e.body.bottom() + 4) {
           e.damage(s.dmg); s.hit = true;
-          fx.spawn('hit_spark', s.x, s.y + 12, 1);
+          fx.spawn('impact_' + s.kind, s.x, s.y, s.dir, { sheet: 'buster', center: true });
         }
       }
       p.shots = p.shots.filter(s => !s.hit || s.kind === 'full');
@@ -217,7 +220,7 @@ function drawMenu() {
   const pads = connectedPads().length;
   g.fillText(`${pads} controller${pads === 1 ? '' : 's'} connected`, CFG.view.w / 2, CFG.view.h - 46);
   g.fillText('ENTER / START to confirm' + (phase === 'level' ? ' · C back' : ''), CFG.view.w / 2, CFG.view.h - 32);
-  g.fillText('Z jump (again in air = fly) · X fire · C dash', CFG.view.w / 2, CFG.view.h - 18);
+  g.fillText('Z jump (again in air = fly) · X fire · C dash · V viewer', CFG.view.w / 2, CFG.view.h - 18);
   g.textAlign = 'left';
 }
 
@@ -227,6 +230,8 @@ function fit() {
   canvas.style.height = CFG.view.h * scale + 'px';
 }
 addEventListener('resize', fit);
+// V opens the sprite/animation viewer in a new tab
+addEventListener('keydown', e => { if (e.code === 'KeyV') open('tools/viewer.html', '_blank'); });
 
 // Fixed 60fps simulation regardless of display refresh rate. rAF fires at the
 // monitor's rate (120/144Hz+), so stepping once per frame ran everything fast.

@@ -67,9 +67,11 @@ To add a level: create the folder, drop in the four PNGs, add `{ "name": "MY STA
 
 ## Sprite sheet system
 
-Character sheets (`assets/x.png`, `assets/rush.png`) are auto-sliced at load: connected pixel regions become frames, grouped into rows. Animations in `js/spritemap.js` (X) and `js/rushmap.js` (Rush) reference frames as `[row, index]` (top-to-bottom, left-to-right). Opaque background colors (teal, blue, etc.) are knocked out automatically using the image's most common color as the key — corner sampling would fail on sheets with border frames.
+Sheets (`assets/x.png`, `assets/Rush2.png`, `assets/x_buster_shots.png`) are auto-sliced at load: connected pixel regions become frames, grouped into rows. Animations in `js/spritemap.js` (X), `js/rushmap.js` (Rush), and `js/bustermap.js` (all buster shots + impacts) reference frames as `[row, index]` (top-to-bottom, left-to-right). Opaque background colors (teal, blue, etc.) are knocked out automatically using the image's most common color as the key — corner sampling would fail on sheets with border frames.
 
-**Open `tools/viewer.html`** (via the local server) to see every mapped animation for both characters playing. If one looks wrong, edit its `[row, index]` list in `spritemap.js` and refresh. This same slicer will drive enemy/weapon sheets later — enemy `CATALOG` entries already reserve `sheet`/`anims` fields.
+Sheets may contain label text ("STAND:", "low charge", …). Labels on their own line slice into their own row (skip the row); labels sharing a line with frames become the row's first indices (skip them in the map — see the comments in `bustermap.js` and `rushmap.js`).
+
+**Open `tools/viewer.html`** (via the local server, or just press **V** in-game) to see every mapped animation for all sheets playing. If one looks wrong, edit its `[row, index]` list in `spritemap.js` and refresh. This same slicer will drive enemy/weapon sheets later — enemy `CATALOG` entries already reserve `sheet`/`anims` fields.
 
 **`tools/BadGuyMaker.html`** (also via the local server) builds enemy definitions graphically: load a sprite sheet and shot sheet, preview the sliced animations and a Mega Man-style health bar, set health / shot damage / speed / jump, and save the result as a `.json` to place under `enemies/<name>/`.
 

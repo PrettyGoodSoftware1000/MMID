@@ -6,10 +6,10 @@ const P = CFG.player, B = CFG.buster;
 // Character-agnostic player. Capabilities (dash, wallKick, fly, charge) come
 // from CFG.chars[id]; both X and Rush run through this same state machine.
 export class Player {
-  constructor(charId, anim, effects, input) {
+  constructor(charId, anim, shotAnim, effects, input) {
     this.char = CFG.chars[charId];
     this.charId = charId;
-    this.anim = anim; this.fx = effects; this.in = input;
+    this.anim = anim; this.shotAnim = shotAnim; this.fx = effects; this.in = input;
     this.body = new Body(this.char.hitW, this.char.hitH);
     this.facing = 1;
     this.hp = P.hp;
@@ -203,16 +203,22 @@ export class Player {
     const spec = B[kind];
     this.shots.push({
       kind, x: this.x + dir * this.char.shootX, y: this.y + this.char.shootY,
-      vx: dir * spec.speed, dmg: spec.dmg, dir,
+      vx: dir * spec.speed, dmg: spec.dmg, dir, age: 0,
     });
-    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY + 4, dir);
+    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY, dir,
+      { sheet: 'buster', center: true });
     this.shootT = B.shootPose;
   }
 
   _updateShots(level) {
-    for (const s of this.shots) { s.x += s.vx; }
-    this.shots = this.shots.filter(s =>
-      !level.solidAt(s.x, s.y) && Math.abs(s.x - this.x) < CFG.view.w * 0.75);
+    for (const s of this.shots) { s.x += s.vx; s.age++; }
+    this.shots = this.shots.filter(s => {
+      if (level.solidAt(s.x, s.y)) {
+        this.fx.spawn('impact_' + s.kind, s.x - s.dir * 2, s.y, s.dir, { sheet: 'buster', center: true });
+        return false;
+      }
+      return Math.abs(s.x - this.x) < CFG.view.w * 0.75;
+    });
   }
 
   _animate(dashing, move, slidingDir) {
@@ -239,9 +245,13 @@ export class Player {
       g.restore();
     }
     this.anim.draw(g, this.x - cam.ix, this.y - cam.iy, this.facing * this.char.flipBase);
+    // Shots come from the shared buster sheet, which faces right — use the
+    // shot's own direction, not the character sheet's flipBase.
     for (const s of this.shots) {
-      const name = s.kind === 'full' ? 'shot_full' : s.kind === 'mid' ? 'shot_mid' : 'shot_lemon';
-      this.anim.draw(g, s.x - cam.ix, s.y - cam.iy, s.dir * this.char.flipBase, name, 0,
+      const name = 'shot_' + s.kind;
+      const def = this.shotAnim.map[name];
+      const frame = Math.floor(s.age * def.fps * CFG.animSpeed / 60) % def.frames.length;
+      this.shotAnim.draw(g, s.x - cam.ix, s.y - cam.iy, s.dir, name, frame,
         { center: true, scale: s.kind === 'full' ? B.full.scale : 1 });
     }
   }

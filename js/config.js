@@ -20,11 +20,12 @@ export const CFG = {
   chars: {
     x:    { name: 'X', sheet: 'assets/x.png', hitW: 12, hitH: 28, flipBase: 1,
             dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -26 },
-    rush: { name: 'RUSH', sheet: 'assets/rush.png', hitW: 22, hitH: 24, flipBase: -1,
+    rush: { name: 'RUSH', sheet: 'assets/Rush2.png', hitW: 22, hitH: 24, flipBase: -1,
             dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -20,
             flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },
   },
   buster: {
+    sheet: 'assets/x_buster_shots.png',  // shot + impact animations (see bustermap.js)
     maxOnScreen: 3,
     lemon: { speed: 6, dmg: 1 },
     mid:   { speed: 7, dmg: 2, chargeAt: 30 },   // frames of holding fire

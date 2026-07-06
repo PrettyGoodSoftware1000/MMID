@@ -2,12 +2,14 @@
 // hit spark) and procedural particles (enemy explosions).
 
 export class Effects {
+  // animFactory(sheetId) returns an Animator for that sheet ('x', 'buster', …).
   constructor(animFactory) { this.animFactory = animFactory; this.list = []; this.parts = []; }
 
-  spawn(name, x, y, facing = 1, follow = null) {
-    const a = this.animFactory();
+  // opts: { sheet: 'x', follow: entity, center: bool (anchor middle, not feet) }
+  spawn(name, x, y, facing = 1, opts = {}) {
+    const a = this.animFactory(opts.sheet || 'x');
     a.set(name, true);
-    this.list.push({ a, x, y, facing, follow });
+    this.list.push({ a, x, y, facing, follow: opts.follow || null, center: !!opts.center });
   }
 
   explode(x, y, color = '#ffd75e', n = 10) {
@@ -28,7 +30,8 @@ export class Effects {
   }
 
   draw(g, cam) {
-    for (const e of this.list) e.a.draw(g, e.x - cam.ix, e.y - cam.iy, e.facing);
+    for (const e of this.list)
+      e.a.draw(g, e.x - cam.ix, e.y - cam.iy, e.facing, undefined, undefined, { center: e.center });
     for (const p of this.parts) {
       g.fillStyle = p.life % 6 < 3 ? p.color : '#ffffff';
       const s = p.life > 14 ? 3 : 2;
