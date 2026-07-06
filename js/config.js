@@ -4,6 +4,7 @@ export const CFG = {
   view: { w: 384, h: 216 },          // 16:9 internal resolution (5x = exactly 1920x1080)
   animSpeed: 1.0,                    // global animation-rate multiplier (0.5 = half speed)
   sfxVolume: 0.35,                   // master sound-effect volume (0-1)
+  musicVolume: 0.4,                  // level music volume (0-1)
   gravity: 0.25,
   maxFall: 5.75,
   runSpeed: 1.5,
@@ -21,7 +22,8 @@ export const CFG = {
   chars: {
     x:    { name: 'X', sheet: 'assets/X/x.png', hitW: 12, hitH: 28, flipBase: 1,
             wallSheet: 'assets/X/x_wallslide.png',   // wall slide + wall jump frames
-            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -24 },
+            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -24,
+            dashShootY: 3 },                         // dash pose is crouched — buster sits this much lower
     rush: { name: 'RUSH', sheet: 'assets/Rush/Rush2.png', hitW: 22, hitH: 24, flipBase: 1,
             dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -18,
             flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },

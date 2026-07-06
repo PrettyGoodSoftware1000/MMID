@@ -78,9 +78,13 @@ Sheets may contain label text ("STAND:", "low charge", …). Labels on their own
 
 Everything lives in `js/config.js`: physics (gravity, run/dash speed, jump velocity, wall-kick), buster (charge times, damage, shots on screen), player HP/i-frames, marker colors, key bindings. `airDash: true` switches to X2-style movement.
 
-## Sound
+## Sound & music
 
 Sound effects are WebAudio-synthesized approximations of the MMX originals (`js/sound.js`), with volume in `CFG.sfxVolume`. Drop real `.wav` rips into `sounds/` (see `sounds/README.md` for the file names) and they automatically replace the synthesized versions.
+
+Each level plays looping music on load (`js/music.js`, volume in `CFG.musicVolume`): a real track from `music/<levelfolder>.mp3` (or `.ogg`/`.wav`, then `music/default.*`) if present, else a synthesized chiptune loop. See `music/README.md`.
+
+Browsers block audio until the page has been clicked or a key pressed — if you play gamepad-only, click the game once to unlock sound.
 
 ## Current placeholders / roadmap
 

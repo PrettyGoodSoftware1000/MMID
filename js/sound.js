@@ -8,14 +8,18 @@ import { CFG } from './config.js';
 
 const AC = window.AudioContext || window.webkitAudioContext;
 const ctx = AC ? new AC() : null;
+export { ctx as audioCtx };   // shared by the music engine (music.js)
 let master = null;
 if (ctx) {
   master = ctx.createGain();
   master.gain.value = CFG.sfxVolume ?? 0.35;
   master.connect(ctx.destination);
-  const unlock = () => ctx.resume();
-  addEventListener('keydown', unlock, { once: true });
-  addEventListener('mousedown', unlock, { once: true });
+  // Persistent unlock (not once:true): gamepad input never fires these events,
+  // so keep listening — the first click/keypress after pad-only play resumes
+  // audio. playSfx also retries, covering "clicked earlier, padded ever since".
+  const unlock = () => { if (ctx.state === 'suspended') ctx.resume(); };
+  for (const ev of ['keydown', 'mousedown', 'pointerdown', 'touchstart'])
+    addEventListener(ev, unlock);
 }
 
 export const SOUND_NAMES = [
@@ -38,7 +42,11 @@ export async function loadSounds() {
 }
 
 export function playSfx(name) {
-  if (!ctx || ctx.state !== 'running') return;
+  if (!ctx) return;
+  // resume works whenever the page has ever been clicked/keyed (sticky
+  // activation) — covers gamepad players whose pad input can't unlock audio
+  if (ctx.state === 'suspended') { ctx.resume(); return; }
+  if (ctx.state !== 'running') return;
   if (samples[name]) {
     const s = ctx.createBufferSource();
     s.buffer = samples[name];

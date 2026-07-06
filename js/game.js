@@ -13,6 +13,7 @@ import { Enemy } from './enemies.js';
 import { Effects } from './effects.js';
 import { drawHUD } from './hud.js';
 import { loadSounds, playSfx } from './sound.js';
+import { playLevelMusic, stopMusic } from './music.js';
 
 const canvas = document.getElementById('game');
 const g = canvas.getContext('2d');
@@ -58,6 +59,7 @@ async function startLevel(def, chars) {
   checkpoint = { ...level.spawn };
   cam = new Camera(level);
   fullRespawn();
+  playLevelMusic(def.path);
   state = 'play';
 }
 
@@ -132,12 +134,16 @@ function update() {
         if (s.hit) continue;
         const hr = CFG.buster[s.kind].hitR ?? 4;   // full shot is big — big hitbox
         if (Math.abs(s.x - e.x) < e.spec.w / 2 + hr && s.y > e.body.top() - hr && s.y < e.body.bottom() + hr) {
-          e.damage(s.dmg); s.hit = true;
+          e.damage(s.dmg);
           fx.spawn('impact_' + s.kind, s.x, s.y, s.dir, { sheet: 'buster', center: true });
           playSfx('impact');
+          // charged shots punch through anything they DESTROY (and keep full
+          // damage for the next target); a survivor stops the shot
+          const pierced = s.kind !== 'lemon' && !e.alive;
+          if (!pierced) s.hit = true;
         }
       }
-      p.shots = p.shots.filter(s => !s.hit || s.kind === 'full');
+      p.shots = p.shots.filter(s => !s.hit);
       if (e.alive && p.state === 'play' && p.body.overlaps(e.body)) p.hit(e.spec.dmg, e.x);
       for (const s of e.shots) {
         if (Math.abs(s.x - p.x) < 8 && s.y > p.body.top() && s.y < p.body.bottom()) {
@@ -165,7 +171,7 @@ function update() {
     }
   }
 
-  if (in1.pressed('start')) { state = 'menu'; phase = 'mode'; }
+  if (in1.pressed('start')) { state = 'menu'; phase = 'mode'; stopMusic(); }
 }
 
 function draw() {

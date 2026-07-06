@@ -208,11 +208,14 @@ export class Player {
     if (kind === 'lemon' && live >= B.maxOnScreen) return;
     const dir = slidingDir !== 0 ? -slidingDir : this.facing;
     const spec = B[kind];
+    // the dash pose is crouched, so the buster sits a little lower mid-dash
+    const dashing = this.char.dash && this.dashT > 0 && this.body.onGround;
+    const shotY = this.y + this.char.shootY + (dashing ? this.char.dashShootY || 0 : 0);
     this.shots.push({
-      kind, x: this.x + dir * this.char.shootX, y: this.y + this.char.shootY,
+      kind, x: this.x + dir * this.char.shootX, y: shotY,
       vx: dir * spec.speed, dmg: spec.dmg, dir, age: 0,
     });
-    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY, dir,
+    this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), shotY, dir,
       { sheet: 'buster', center: true });
     playSfx(kind === 'full' ? 'full_shot' : kind === 'mid' ? 'mid_shot' : 'lemon');
     this.shootT = B.shootPose;
