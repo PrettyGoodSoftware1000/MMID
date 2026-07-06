@@ -1,5 +1,6 @@
 {
   "levels": [
-    { "name": "TEST RANGE", "path": "levels/test" }
+    { "name": "TEST RANGE", "path": "levels/test" },
+    { "name": "LONG RANGE", "path": "levels/long_test" }
   ]
 }

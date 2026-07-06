@@ -1,5 +1,6 @@
 import { CFG } from './config.js';
 import { Body } from './body.js';
+import { playSfx } from './sound.js';
 
 const P = CFG.player, B = CFG.buster;
 
@@ -30,6 +31,7 @@ export class Player {
     this.body.x = x; this.body.y = y;
     this.state = 'spawn';
     this.anim.set('teleport_in', true);
+    playSfx('teleport');
     this.hp = P.hp; this.iT = 0; this.shots = [];
     this.flying = false; this.fuel = this.fuelMax;
     this.body.vx = 0; this.body.vy = 0;
@@ -46,6 +48,7 @@ export class Player {
     this.iT = P.iFrames;
     this.flying = false;
     this.fx.spawn('hit_spark', this.x, this.y - 12, 1);
+    playSfx('hurt');
     if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.deadT = 0; this.fx.explode(this.x, this.y - 14, '#7ec8ff', 16); return; }
     this.state = 'hurt';
     this.hurtT = P.hurtFrames;
@@ -84,14 +87,14 @@ export class Player {
     // ground fuel regen
     if (this.char.fly && b.onGround) this.fuel = Math.min(this.fuelMax, this.fuel + this.char.flight.regen);
 
-    // dash (capability-gated). dashLeft (LB/LT) always dashes left.
-    const dashLeftNow = this.in.pressed('dashLeft');
-    if (this.char.dash && (this.in.pressed('dash') || dashLeftNow) && b.onGround && this.dashT <= 0) {
+    // dash (capability-gated); any dash button dashes in the facing direction
+    if (this.char.dash && this.in.pressed('dash') && b.onGround && this.dashT <= 0) {
       this.dashT = CFG.dashFrames; this.dashHeld = true;
-      this.facing = dashLeftNow ? -1 : (move !== 0 ? move : this.facing);
-      this.fx.spawn('dash_dust', this.x - this.facing * 10, this.y, this.facing);
+      this.facing = move !== 0 ? move : this.facing;
+      this.fx.spawn('dash_dust', this.x - this.facing * 10, this.y, this.facing, { sheet: 'misc' });
+      playSfx('dash');
     }
-    if (!this.in.down('dash') && !this.in.down('dashLeft')) this.dashHeld = false;
+    if (!this.in.down('dash')) this.dashHeld = false;
     const dashing = this.char.dash && this.dashT > 0 && b.onGround;
     if (this.dashT > 0) { this.dashT--; if (!this.dashHeld && this.dashT > 4) this.dashT = 4; }
 
@@ -134,24 +137,24 @@ export class Player {
     if (this.jumpBuf > 0) {
       if (this.coyote > 0) {
         b.vy = CFG.jumpVel;
-        const dashDown = this.in.down('dash') || this.in.down('dashLeft');
-        this.dashJump = this.char.dash && (this.dashT > 0 || dashing || (dashDown && Math.abs(b.vx) >= CFG.dashSpeed - 0.1));
+        this.dashJump = this.char.dash && (this.dashT > 0 || dashing || (this.in.down('dash') && Math.abs(b.vx) >= CFG.dashSpeed - 0.1));
         this.dashT = 0; this.coyote = 0; this.jumpBuf = 0;
       } else if (slidingDir !== 0) {
         this.wallDir = slidingDir;
         this.wallLock = CFG.wallKick.lockFrames;
         b.vy = CFG.wallKick.vy;
-        this.dashJump = this.in.down('dash') || this.in.down('dashLeft');
+        this.dashJump = this.in.down('dash');
         this.facing = -slidingDir;
         this.jumpBuf = 0;
         this.anim.set('wall_kick', true);
-        this.fx.spawn('dash_dust', this.x + slidingDir * 8, this.y - 8, -slidingDir);
+        this.fx.spawn('wall_dust', this.x + slidingDir * 8, this.y - 8, -slidingDir, { sheet: 'misc' });
+        playSfx('dash');
       } else if (this.char.fly && this.fuel > this.char.flight.minFuel) {
         // mid-air jump press = engage flight
         this.flying = true;
         this.jumpBuf = 0;
         b.vy = 0;
-        this.fx.spawn('dash_dust', this.x, this.y + 4, this.facing);
+        this.fx.spawn('dash_dust', this.x, this.y + 4, this.facing, { sheet: 'misc' });
         return;
       }
     }
@@ -184,7 +187,11 @@ export class Player {
   }
 
   _shoot(level, slidingDir) {
-    if (this.char.charge && this.in.down('fire')) this.charge++;
+    if (this.char.charge && this.in.down('fire')) {
+      this.charge++;
+      if (this.charge === B.mid.chargeAt) playSfx('charge_mid');
+      if (this.charge === B.full.chargeAt) playSfx('charge_full');
+    }
     if (this.in.pressed('fire')) this._fire('lemon', slidingDir);
     if (this.in.released('fire')) {
       if (this.char.charge) {
@@ -207,6 +214,7 @@ export class Player {
     });
     this.fx.spawn('muzzle', this.x + dir * (this.char.shootX + 2), this.y + this.char.shootY, dir,
       { sheet: 'buster', center: true });
+    playSfx(kind === 'full' ? 'full_shot' : kind === 'mid' ? 'mid_shot' : 'lemon');
     this.shootT = B.shootPose;
   }
 

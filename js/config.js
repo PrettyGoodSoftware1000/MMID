@@ -3,6 +3,7 @@
 export const CFG = {
   view: { w: 256, h: 224 },          // internal SNES-style resolution
   animSpeed: 1.0,                    // global animation-rate multiplier (0.5 = half speed)
+  sfxVolume: 0.35,                   // master sound-effect volume (0-1)
   gravity: 0.25,
   maxFall: 5.75,
   runSpeed: 1.5,
@@ -19,10 +20,13 @@ export const CFG = {
   // Character capability definitions. flipBase = which way the sheet faces (1 right, -1 left).
   chars: {
     x:    { name: 'X', sheet: 'assets/x.png', hitW: 12, hitH: 28, flipBase: 1,
-            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -26 },
-    rush: { name: 'RUSH', sheet: 'assets/Rush2.png', hitW: 22, hitH: 24, flipBase: -1,
-            dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -20,
+            dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -24 },
+    rush: { name: 'RUSH', sheet: 'assets/Rush2.png', hitW: 22, hitH: 24, flipBase: 1,
+            dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -18,
             flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },
+  },
+  effects: {
+    sheet: 'assets/misc_sprites.png',    // dash smoke, wall dust, charge sparks (see miscmap.js)
   },
   buster: {
     sheet: 'assets/x_buster_shots.png',  // shot + impact animations (see bustermap.js)
@@ -50,7 +54,6 @@ export const CFG = {
     jump: ['KeyZ', 'Space'], fire: ['KeyX', 'KeyJ'], dash: ['KeyC', 'ShiftLeft', 'KeyK'],
     start: ['Enter'],
   },
-  // Standard gamepad mapping indices. dashLeft (LB/LT) dashes left regardless of facing.
-  pad: { jump: 0, fire: 2, fireAlt: 1, dash: 5, dashAlt: 7,
-         dashLeft: 4, dashLeftAlt: 6, start: 9, deadzone: 0.35 },
+  // Standard gamepad mapping indices. All four shoulder buttons dash (facing direction).
+  pad: { jump: 0, fire: 2, fireAlt: 1, dashButtons: [4, 5, 6, 7], start: 9, deadzone: 0.35 },
 };

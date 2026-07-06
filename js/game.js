@@ -5,12 +5,14 @@ import { sliceSheet } from './slicer.js';
 import { X_MAP, Animator } from './spritemap.js';
 import { RUSH_MAP } from './rushmap.js';
 import { BUSTER_MAP } from './bustermap.js';
+import { MISC_MAP } from './miscmap.js';
 import { Level } from './level.js';
 import { Camera } from './camera.js';
 import { Player } from './player.js';
 import { Enemy } from './enemies.js';
 import { Effects } from './effects.js';
 import { drawHUD } from './hud.js';
+import { loadSounds, playSfx } from './sound.js';
 
 const canvas = document.getElementById('game');
 const g = canvas.getContext('2d');
@@ -35,10 +37,13 @@ async function boot() {
   }
   sheets.buster = await loadSheet(CFG.buster.sheet);
   rows.buster = sliceSheet(sheets.buster);
+  sheets.misc = await loadSheet(CFG.effects.sheet);
+  rows.misc = sliceSheet(sheets.misc);
+  loadSounds();   // non-blocking; synth fallbacks cover missing files
   requestAnimationFrame(loop);
 }
 
-const MAPS = { x: X_MAP, rush: RUSH_MAP, buster: BUSTER_MAP };
+const MAPS = { x: X_MAP, rush: RUSH_MAP, buster: BUSTER_MAP, misc: MISC_MAP };
 const makeAnim = id => new Animator(sheets[id], rows[id], MAPS[id]);
 
 async function startLevel(def, chars) {
@@ -89,8 +94,10 @@ function update() {
     let next = idx;
     if (in1.pressed('down')) next = (idx + 1) % items.length;
     if (in1.pressed('up')) next = (idx + items.length - 1) % items.length;
+    if (next !== idx) playSfx('menu_move');
     if (phase === 'mode') modeIdx = next; else levelIdx = next;
     if (in1.pressed('start') || in1.pressed('jump')) {
+      playSfx('menu_select');
       if (phase === 'mode') phase = 'level';
       else startLevel(levelsDef.levels[levelIdx], MODES[modeIdx].chars);
     }
@@ -122,6 +129,7 @@ function update() {
         if (Math.abs(s.x - e.x) < e.spec.w / 2 + 4 && s.y > e.body.top() - 4 && s.y < e.body.bottom() + 4) {
           e.damage(s.dmg); s.hit = true;
           fx.spawn('impact_' + s.kind, s.x, s.y, s.dir, { sheet: 'buster', center: true });
+          playSfx('impact');
         }
       }
       p.shots = p.shots.filter(s => !s.hit || s.kind === 'full');
@@ -132,7 +140,7 @@ function update() {
         }
       }
     }
-    if (!e.alive && !e.exploded) { e.exploded = true; fx.explode(e.x, e.y - e.spec.h / 2); }
+    if (!e.alive && !e.exploded) { e.exploded = true; fx.explode(e.x, e.y - e.spec.h / 2); playSfx('explosion'); }
   }
   enemies = enemies.filter(e => e.alive);
 

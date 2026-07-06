@@ -30,8 +30,7 @@ In 2P mode the camera follows the midpoint between both players; small edge arro
 | Move | Arrows / WASD | D-pad or left stick |
 | Jump / fly toggle (in air, Rush) | Z / Space | A (button 0) |
 | Fire (hold to charge) | X / J | X (button 2) or B |
-| Dash (X only) | C / Shift / K | RB or RT |
-| Dash left (X only) | — | LB or LT |
+| Dash (X only, facing direction) | C / Shift / K | any shoulder button (LB/RB/LT/RT) |
 | Start / back to menu | Enter | Start |
 
 Jump height is variable: hold jump to climb higher, tap for a short hop (`jumpHoldGravity` / `jumpCutVel` in `js/config.js`).
@@ -67,7 +66,7 @@ To add a level: create the folder, drop in the four PNGs, add `{ "name": "MY STA
 
 ## Sprite sheet system
 
-Sheets (`assets/x.png`, `assets/Rush2.png`, `assets/x_buster_shots.png`) are auto-sliced at load: connected pixel regions become frames, grouped into rows. Animations in `js/spritemap.js` (X), `js/rushmap.js` (Rush), and `js/bustermap.js` (all buster shots + impacts) reference frames as `[row, index]` (top-to-bottom, left-to-right). Opaque background colors (teal, blue, etc.) are knocked out automatically using the image's most common color as the key — corner sampling would fail on sheets with border frames.
+Sheets (`assets/x.png`, `assets/Rush2.png`, `assets/x_buster_shots.png`, `assets/misc_sprites.png`) are auto-sliced at load: connected pixel regions become frames, grouped into rows. Animations in `js/spritemap.js` (X), `js/rushmap.js` (Rush), `js/bustermap.js` (buster shots + impacts), and `js/miscmap.js` (dash smoke, wall dust, charge sparks) reference frames as `[row, index]` (top-to-bottom, left-to-right), or as explicit `{x, y, w, h}` rects when a sheet slices unreliably (see `miscmap.js`). Opaque background colors (teal, blue, etc.) are knocked out automatically using the image's most common color as the key — corner sampling would fail on sheets with border frames.
 
 Sheets may contain label text ("STAND:", "low charge", …). Labels on their own line slice into their own row (skip the row); labels sharing a line with frames become the row's first indices (skip them in the map — see the comments in `bustermap.js` and `rushmap.js`).
 
@@ -79,10 +78,13 @@ Sheets may contain label text ("STAND:", "low charge", …). Labels on their own
 
 Everything lives in `js/config.js`: physics (gravity, run/dash speed, jump velocity, wall-kick), buster (charge times, damage, shots on screen), player HP/i-frames, marker colors, key bindings. `airDash: true` switches to X2-style movement.
 
+## Sound
+
+Sound effects are WebAudio-synthesized approximations of the MMX originals (`js/sound.js`), with volume in `CFG.sfxVolume`. Drop real `.wav` rips into `sounds/` (see `sounds/README.md` for the file names) and they automatically replace the synthesized versions.
+
 ## Current placeholders / roadmap
 
 - Enemies use procedural pixel art; swap in real sheets via the slicer + a per-enemy map.
-- No audio yet.
 - Camera is free-follow; MMX-style locked camera zones can be added as rects in the level JSON.
 - No boss, weapons menu, or armor pickups yet.
 

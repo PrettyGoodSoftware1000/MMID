@@ -22,8 +22,8 @@ export const X_MAP = {
   wall_kick:   { frames: r(10, [1]), fps: 10, loop: false },
   hurt:        { frames: r(11, [1, 2]), fps: 10, loop: true },
   hit_spark:   { frames: r(11, [5]), fps: 10, loop: false },
-  dash_dust:   { frames: r(14, [0, 1, 2, 3, 4]), fps: 18, loop: false },
-  // shots + muzzle now live on the shared buster sheet (bustermap.js)
+  // shots + muzzle live on the buster sheet (bustermap.js);
+  // dash smoke + wall dust live on the misc sheet (miscmap.js)
 };
 
 function r(row, indices) { return indices.map(i => [row, i]); }
@@ -48,8 +48,9 @@ export class Animator {
   }
   get finished() { return !this.def.loop && this.frame >= this.def.frames.length - 1 && this.t > 0.5; }
   rect(name = this.name, frame = this.frame) {
-    const [row, idx] = this.map[name].frames[Math.min(frame, this.map[name].frames.length - 1)];
-    const r = (this.rows[row] || [])[idx];
+    const f = this.map[name].frames[Math.min(frame, this.map[name].frames.length - 1)];
+    if (!Array.isArray(f)) return f;               // explicit {x,y,w,h} rect
+    const r = (this.rows[f[0]] || [])[f[1]];
     return r || { x: 0, y: 0, w: 1, h: 1 };
   }
   // Draw anchored at feet-center (x = center, y = feet), flipped when facing < 0.

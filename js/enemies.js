@@ -5,7 +5,7 @@ import { CFG } from './config.js';
 // (they'll flow through the same slicer + Animator as the player); until then
 // each type has a small procedural pixel look drawn in draw().
 export const CATALOG = {
-  walker: { hp: 3, dmg: 3, w: 20, h: 16, speed: 0.6 },
+  walker: { hp: 3, dmg: 3, w: 20, h: 32, speed: 0.6 },
   flyer:  { hp: 2, dmg: 2, w: 16, h: 14, speed: 0.9 },
   turret: { hp: 5, dmg: 2, w: 18, h: 18, fireEvery: 100, shotSpeed: 2.2 },
 };

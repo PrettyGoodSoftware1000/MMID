@@ -28,12 +28,14 @@ import { sliceSheet } from '../js/slicer.js';
 import { X_MAP, Animator } from '../js/spritemap.js';
 import { RUSH_MAP } from '../js/rushmap.js';
 import { BUSTER_MAP } from '../js/bustermap.js';
+import { MISC_MAP } from '../js/miscmap.js';
 import { CFG } from '../js/config.js';
 
 const CHARS = [
   { name: 'X', sheet: CFG.chars.x.sheet, map: X_MAP },
   { name: 'RUSH', sheet: CFG.chars.rush.sheet, map: RUSH_MAP },
   { name: 'X BUSTER SHOTS', sheet: CFG.buster.sheet, map: BUSTER_MAP },
+  { name: 'MISC EFFECTS', sheet: CFG.effects.sheet, map: MISC_MAP },
 ];
 const root = document.getElementById('root');
 const cells = [];
@@ -53,7 +55,8 @@ for (const c of CHARS) {
     cv.width = 80; cv.height = 80; cv.style.width = '160px'; cv.style.height = '160px';
     const label = document.createElement('span'); label.textContent = name;
     const info = document.createElement('small');
-    info.textContent = c.map[name].frames.map(f => f.join(':')).join(' ');
+    info.textContent = c.map[name].frames
+      .map(f => Array.isArray(f) ? f.join(':') : `${f.x},${f.y}`).join(' ');
     div.append(cv, label, info);
     grid.append(div);
     const a = new Animator(sheet, rows, c.map);
