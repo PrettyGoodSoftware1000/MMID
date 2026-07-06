@@ -8,11 +8,20 @@
   h1 { font-size: 14px; color: #7ec8ff; }
   h2 { font-size: 12px; color: #ffe08a; margin-top: 28px; }
   p { color: #6b7a8c; max-width: 70ch; }
+  .tabs { display: flex; gap: 8px; margin: 16px 0; }
+  .tabs button {
+    background: #131824; border: 1px solid #232c3e; color: #8aa0b8;
+    font: bold 12px monospace; padding: 8px 18px; cursor: pointer;
+  }
+  .tabs button.active { background: #1c2a44; border-color: #3a4c6e; color: #7ec8ff; }
   .grid { display: flex; flex-wrap: wrap; gap: 14px; }
   .cell { background: #131824; border: 1px solid #232c3e; padding: 8px; text-align: center; }
   .cell canvas { image-rendering: pixelated; background: #05070c; display: block; margin: 0 auto 6px; }
   .cell span { color: #ffe08a; }
   .cell small { color: #56677c; display: block; }
+  .cell.clicky { cursor: pointer; }
+  .cell.clicky:hover { border-color: #3a4c6e; background: #1a2234; }
+  #speed { margin-left: 12px; color: #8aa0b8; }
 </style>
 </head>
 <body>
@@ -21,7 +30,23 @@
 If one looks wrong, edit that entry's [row, index] list in <b>js/spritemap.js</b> (X)
 or <b>js/rushmap.js</b> (Rush) — rows and indices count top-to-bottom, left-to-right
 on the sheet. Refresh to see the fix.</p>
-<div id="root"></div>
+<div class="tabs">
+  <button id="tabChars" class="active">PLAYER CHARACTERS</button>
+  <button id="tabBaddies">BAD GUYS</button>
+  <label id="speed">speed
+    <select id="speedSel">
+      <option value="0.25">0.25x</option>
+      <option value="0.5" selected>0.5x</option>
+      <option value="1">1x</option>
+    </select>
+  </label>
+</div>
+<div id="charsPage"></div>
+<div id="baddiesPage" hidden>
+  <p>Current placeholder enemies (procedurally drawn — see <b>js/enemies.js</b>).
+  Click one to open it in BadGuyMaker and start replacing it with real sprites.</p>
+  <div class="grid" id="baddiesGrid"></div>
+</div>
 <script type="module">
 import { loadSheet } from '../js/assets.js';
 import { sliceSheet } from '../js/slicer.js';
@@ -29,16 +54,41 @@ import { X_MAP, Animator } from '../js/spritemap.js';
 import { RUSH_MAP } from '../js/rushmap.js';
 import { BUSTER_MAP } from '../js/bustermap.js';
 import { MISC_MAP } from '../js/miscmap.js';
+import { CATALOG, Enemy } from '../js/enemies.js';
 import { CFG } from '../js/config.js';
 
+// playback speed control (default half speed for easier inspection)
+const speedSel = document.getElementById('speedSel');
+CFG.animSpeed = +speedSel.value;
+speedSel.addEventListener('change', () => CFG.animSpeed = +speedSel.value);
+
+// ---- tabs ----
+const pages = {
+  tabChars: document.getElementById('charsPage'),
+  tabBaddies: document.getElementById('baddiesPage'),
+};
+for (const id of Object.keys(pages)) {
+  document.getElementById(id).addEventListener('click', () => {
+    for (const other of Object.keys(pages)) {
+      document.getElementById(other).classList.toggle('active', other === id);
+      pages[other].hidden = other !== id;
+    }
+  });
+}
+
+// ---- player characters (sheet-driven animations) ----
 const CHARS = [
   { name: 'X', sheet: CFG.chars.x.sheet, map: X_MAP },
   { name: 'RUSH', sheet: CFG.chars.rush.sheet, map: RUSH_MAP },
   { name: 'X BUSTER SHOTS', sheet: CFG.buster.sheet, map: BUSTER_MAP },
   { name: 'MISC EFFECTS', sheet: CFG.effects.sheet, map: MISC_MAP },
 ];
-const root = document.getElementById('root');
+const root = pages.tabChars;
 const cells = [];
+
+// X's wall slide/jump frames live in a separate sheet, registered as an extra
+const wallSheet = await loadSheet('../' + CFG.chars.x.wallSheet);
+const extras = { wallslide: { sheet: wallSheet, rows: sliceSheet(wallSheet) } };
 
 for (const c of CHARS) {
   const sheet = await loadSheet('../' + c.sheet);
@@ -59,7 +109,7 @@ for (const c of CHARS) {
       .map(f => Array.isArray(f) ? f.join(':') : `${f.x},${f.y}`).join(' ');
     div.append(cv, label, info);
     grid.append(div);
-    const a = new Animator(sheet, rows, c.map);
+    const a = new Animator(sheet, rows, c.map, extras);
     a.set(name, true);
     const g = cv.getContext('2d');
     g.imageSmoothingEnabled = false;
@@ -67,16 +117,58 @@ for (const c of CHARS) {
   }
 }
 
-function loop() {
+// ---- bad guys (procedural placeholders from enemies.js) ----
+const baddiesGrid = document.getElementById('baddiesGrid');
+const baddies = [];
+const fakeCam = { ix: 0, iy: 0 };
+for (const id of Object.keys(CATALOG)) {
+  const spec = CATALOG[id];
+  const div = document.createElement('div');
+  div.className = 'cell clicky';
+  div.title = 'Open in BadGuyMaker';
+  const cv = document.createElement('canvas');
+  cv.width = 80; cv.height = 80; cv.style.width = '160px'; cv.style.height = '160px';
+  const label = document.createElement('span'); label.textContent = id;
+  const info = document.createElement('small');
+  info.textContent = `hp ${spec.hp} · dmg ${spec.dmg} · ${spec.w}x${spec.h}`;
+  div.append(cv, label, info);
+  div.addEventListener('click', () => open('BadGuyMaker.html?enemy=' + id, '_blank'));
+  baddiesGrid.append(div);
+  const e = new Enemy(id, 40, 0);
+  e.body.x = 40; e.body.y = 72;   // feet-anchored draw position in the 80x80 cell
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  baddies.push({ e, g });
+}
+
+// ---- fixed 60fps playback loop (rAF fires at monitor rate) ----
+const STEP = 1000 / 60;
+let last = null, acc = 0;
+function loop(now) {
+  if (last === null) last = now;
+  acc = Math.min(acc + (now - last), 250);
+  last = now;
+  while (acc >= STEP) {
+    for (const c of cells) {
+      c.a.tick();
+      if (c.a.finished) c.a.set(c.name, true);
+    }
+    // enemy placeholder animations key off their internal frame counter,
+    // scaled by the same speed setting as the sprite animations
+    for (const b of baddies) b.e.t += CFG.animSpeed;
+    acc -= STEP;
+  }
   for (const c of cells) {
-    c.a.tick();
-    if (c.a.finished) c.a.set(c.name, true);
     c.g.clearRect(0, 0, 80, 80);
     c.a.draw(c.g, 40, 72, 1);
   }
+  for (const b of baddies) {
+    b.g.clearRect(0, 0, 80, 80);
+    b.e.draw(b.g, fakeCam);
+  }
   requestAnimationFrame(loop);
 }
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>

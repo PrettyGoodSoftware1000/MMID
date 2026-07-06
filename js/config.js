@@ -1,7 +1,7 @@
 // MegaMan is Dead — all tunables live here.
 // Physics values are per-frame at 60fps, in source pixels.
 export const CFG = {
-  view: { w: 256, h: 224 },          // internal SNES-style resolution
+  view: { w: 384, h: 216 },          // 16:9 internal resolution (5x = exactly 1920x1080)
   animSpeed: 1.0,                    // global animation-rate multiplier (0.5 = half speed)
   sfxVolume: 0.35,                   // master sound-effect volume (0-1)
   gravity: 0.25,
@@ -19,21 +19,24 @@ export const CFG = {
   player: { hp: 16, iFrames: 90, hurtKnockX: 1.0, hurtFrames: 24 },
   // Character capability definitions. flipBase = which way the sheet faces (1 right, -1 left).
   chars: {
-    x:    { name: 'X', sheet: 'assets/x.png', hitW: 12, hitH: 28, flipBase: 1,
+    x:    { name: 'X', sheet: 'assets/X/x.png', hitW: 12, hitH: 28, flipBase: 1,
+            wallSheet: 'assets/X/x_wallslide.png',   // wall slide + wall jump frames
             dash: true, wallKick: true, fly: false, charge: true, shootX: 12, shootY: -24 },
-    rush: { name: 'RUSH', sheet: 'assets/Rush2.png', hitW: 22, hitH: 24, flipBase: 1,
+    rush: { name: 'RUSH', sheet: 'assets/Rush/Rush2.png', hitW: 22, hitH: 24, flipBase: 1,
             dash: false, wallKick: false, fly: true, charge: true, shootX: 16, shootY: -18,
             flight: { speed: 2.0, vSpeed: 1.6, drift: 0.25, fuel: 240, regen: 3, minFuel: 30 } },
   },
   effects: {
-    sheet: 'assets/misc_sprites.png',    // dash smoke, wall dust, charge sparks (see miscmap.js)
+    sheet: 'assets/misc/misc_sprites.png',    // dash smoke, wall dust, charge sparks (see miscmap.js)
   },
   buster: {
-    sheet: 'assets/x_buster_shots.png',  // shot + impact animations (see bustermap.js)
+    sheet: 'assets/X/x_buster_shots.png',  // shot + impact animations (see bustermap.js)
     maxOnScreen: 3,
-    lemon: { speed: 6, dmg: 1 },
-    mid:   { speed: 7, dmg: 2, chargeAt: 30 },   // frames of holding fire
-    full:  { speed: 8, dmg: 4, chargeAt: 85, scale: 0.8 },  // scale shrinks the drawn sprite
+    // hitR = collision half-extent in px; the full shot's big sprite gets a
+    // matching tall/wide hitbox so it can clip low-profile enemies.
+    lemon: { speed: 6, dmg: 1, hitR: 3 },
+    mid:   { speed: 7, dmg: 2, chargeAt: 30, hitR: 6 },   // chargeAt = frames of holding fire
+    full:  { speed: 8, dmg: 4, chargeAt: 85, scale: 0.8, hitR: 16 },  // scale shrinks the drawn sprite
     shootPose: 24,                   // frames the blaster-hand (shoot-variant) anim lingers
   },
   // Enemy-layer marker colors (exact match, RGB)

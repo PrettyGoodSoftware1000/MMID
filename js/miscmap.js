@@ -1,4 +1,4 @@
-// Animation map for assets/misc_sprites.png (dash smoke, wall dust, charge sparks).
+// Animation map for assets/misc/misc_sprites.png (dash smoke, wall dust, charge sparks).
 // This sheet's label text sits inside the same bands as several frames, so the
 // auto-sliced [row, index] refs are unreliable here — frames are given as
 // explicit {x, y, w, h} rects instead (the Animator accepts both forms).

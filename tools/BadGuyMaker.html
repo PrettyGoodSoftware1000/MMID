@@ -90,8 +90,20 @@ animations, using the same [row, index] convention as the player sprite maps.</p
 <script type="module">
 import { loadImage, toCanvas, knockoutKeyColor } from '../js/assets.js';
 import { sliceSheet } from '../js/slicer.js';
+import { CATALOG } from '../js/enemies.js';
 
 const $ = id => document.getElementById(id);
+
+// Opened from the sprite viewer's BAD GUYS tab? Prefill the stats from the
+// placeholder catalog so replacing an existing enemy starts from its values.
+const preset = new URLSearchParams(location.search).get('enemy');
+if (preset && CATALOG[preset]) {
+  const spec = CATALOG[preset];
+  $('name').value = preset;
+  $('health').value = spec.hp;
+  $('shotDamage').value = spec.dmg;
+  $('moveSpeed').value = spec.speed ?? 0;
+}
 
 let enemySheet = null, enemyRows = [], enemySheetName = '';
 let shotSheet = null, shotFrames = [], shotSheetName = '';

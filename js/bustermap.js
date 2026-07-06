@@ -1,4 +1,4 @@
-// Animation map for assets/x_buster_shots.png (auto-sliced [row, index] refs).
+// Animation map for assets/X/x_buster_shots.png (auto-sliced [row, index] refs).
 // The sheet has label text baked in ("x shot", "low charge", …); those text
 // blobs slice as frames at the start of each row, so the indices below skip
 // them. Verify with tools/viewer.html (press V in-game).

@@ -39,12 +39,16 @@ async function boot() {
   rows.buster = sliceSheet(sheets.buster);
   sheets.misc = await loadSheet(CFG.effects.sheet);
   rows.misc = sliceSheet(sheets.misc);
+  // extra sheet: X's wall slide/jump frames live in their own file
+  sheets.wallslide = await loadSheet(CFG.chars.x.wallSheet);
+  rows.wallslide = sliceSheet(sheets.wallslide);
   loadSounds();   // non-blocking; synth fallbacks cover missing files
   requestAnimationFrame(loop);
 }
 
 const MAPS = { x: X_MAP, rush: RUSH_MAP, buster: BUSTER_MAP, misc: MISC_MAP };
-const makeAnim = id => new Animator(sheets[id], rows[id], MAPS[id]);
+const makeAnim = id => new Animator(sheets[id], rows[id], MAPS[id],
+  { wallslide: { sheet: sheets.wallslide, rows: rows.wallslide } });
 
 async function startLevel(def, chars) {
   state = 'loading';
@@ -126,7 +130,8 @@ function update() {
     for (const p of players) {
       for (const s of p.shots) {
         if (s.hit) continue;
-        if (Math.abs(s.x - e.x) < e.spec.w / 2 + 4 && s.y > e.body.top() - 4 && s.y < e.body.bottom() + 4) {
+        const hr = CFG.buster[s.kind].hitR ?? 4;   // full shot is big — big hitbox
+        if (Math.abs(s.x - e.x) < e.spec.w / 2 + hr && s.y > e.body.top() - hr && s.y < e.body.bottom() + hr) {
           e.damage(s.dmg); s.hit = true;
           fx.spawn('impact_' + s.kind, s.x, s.y, s.dir, { sheet: 'buster', center: true });
           playSfx('impact');
